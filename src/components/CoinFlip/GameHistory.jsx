@@ -6,7 +6,7 @@ import {
   faRandom,
   faCheckCircle,
   faTimesCircle,
-  faCoinFlip,
+  faCoins,
   faChartLine,
   faTrophy,
   faWallet,
@@ -128,7 +128,7 @@ const WelcomeNewUser = () => (
         transition={{ type: 'spring', delay: 0.1, duration: 1 }}
         className="w-24 h-24 bg-white/70 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-6 shadow-md border border-[#22AD74]/20"
       >
-        <FontAwesomeIcon icon={faCoinFlip} className="text-[#22AD74] text-4xl" />
+        <FontAwesomeIcon icon={faCoins} className="text-[#22AD74] text-4xl" />
       </motion.div>
 
       <h3 className="text-2xl font-bold text-[#22AD74] mb-3">Game History</h3>
@@ -321,8 +321,10 @@ const GameHistory = ({ account, onError }) => {
   const contractHasRequiredMethods = useMemo(() => {
     if (!CoinFlipContract) return false;
 
-    const _hasGetGameStatus = typeof CoinFlipContract.getGameStatus === 'function';
-    const hasGetBetHistory = typeof CoinFlipContract.getBetHistory === 'function';
+    const _hasGetGameStatus =
+      typeof CoinFlipContract.getGameStatus === 'function';
+    const hasGetBetHistory =
+      typeof CoinFlipContract.getBetHistory === 'function';
 
     return hasGetBetHistory;
   }, [CoinFlipContract]);
@@ -429,7 +431,9 @@ const GameHistory = ({ account, onError }) => {
           <h2 className="text-2xl font-bold text-secondary-800 mb-1">
             Game History
           </h2>
-          <p className="text-secondary-600">Your recent CoinFlip game results</p>
+          <p className="text-secondary-600">
+            Your recent CoinFlip game results
+          </p>
         </div>
 
         <div className="flex flex-wrap gap-2 mb-6">

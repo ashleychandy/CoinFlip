@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   faRandom,
-  faCoinFlip,
+  faCoins,
   faCubes,
   faChartLine,
 } from '@fortawesome/free-solid-svg-icons';
@@ -45,7 +45,10 @@ const WelcomeBanner = ({ onConnectClick }) => (
       <div>
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2.5 bg-[#22AD74]/30 backdrop-blur-sm rounded-full shadow-sm">
-            <FontAwesomeIcon icon={faCoinFlip} className="text-[#22AD74] text-xl" />
+            <FontAwesomeIcon
+              icon={faCoins}
+              className="text-[#22AD74] text-xl"
+            />
           </div>
           <h2 className="text-3xl font-bold text-[#22AD74] bg-clip-text text-transparent bg-gradient-to-r from-[#22AD74] to-[#22AD74]/70">
             Welcome to GAMA CoinFlip
@@ -53,8 +56,8 @@ const WelcomeBanner = ({ onConnectClick }) => (
         </div>
 
         <p className="text-gray-700 mb-5 text-lg">
-          Choose your number, place your bet, and roll the CoinFlip for a chance to
-          win up to 6x your stake!
+          Choose your number, place your bet, and roll the CoinFlip for a chance
+          to win up to 6x your stake!
         </p>
 
         <div className="bg-white/70 backdrop-blur-sm p-4 rounded-xl border border-[#22AD74]/15 mb-4 shadow-sm">
@@ -585,7 +588,7 @@ const CoinFlipPage = ({ contracts, account, onError, addToast }) => {
             <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-[#22AD74]/10 p-6 shadow-sm transition-all hover:shadow-md">
               <div className="w-12 h-12 rounded-full bg-[#22AD74]/10 flex items-center justify-center mb-4">
                 <FontAwesomeIcon
-                  icon={faCoinFlip}
+                  icon={faCoins}
                   className="text-[#22AD74] text-xl"
                 />
               </div>
@@ -621,7 +624,9 @@ const CoinFlipPage = ({ contracts, account, onError, addToast }) => {
                   <div className="w-5 h-5 rounded-full bg-[#22AD74]/20 flex flex-shrink-0 items-center justify-center text-xs text-[#22AD74] font-bold mt-0.5">
                     5
                   </div>
-                  <span>If the CoinFlip rolls your number, you win instantly!</span>
+                  <span>
+                    If the CoinFlip rolls your number, you win instantly!
+                  </span>
                 </li>
               </ul>
             </div>

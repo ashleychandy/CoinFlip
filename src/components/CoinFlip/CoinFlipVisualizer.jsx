@@ -1,13 +1,17 @@
 import { ethers } from 'ethers';
 import { AnimatePresence, motion } from 'framer-motion';
 import React, { useRef, useState, useEffect } from 'react';
-import { useCoinFlipNumber } from '../../hooks/useCoinFlipNumber';
+import { useCoinFlipNumber } from '../../hooks/useCoinFlipNumber.js';
 import { usePollingService } from '../../services/pollingService.jsx';
 
 /**
  * Enhanced CoinFlip Visualizer Component with improved animations, visual feedback, and error handling
  */
-const CoinFlipVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
+const CoinFlipVisualizer = ({
+  chosenNumber,
+  isRolling = false,
+  result = null,
+}) => {
   const timeoutRefs = useRef([]);
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');

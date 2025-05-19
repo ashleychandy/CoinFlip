@@ -83,7 +83,8 @@ const NumberSelector = ({ value, onChange, disabled = false }) => {
         transition={{ delay: 0.3 }}
         className="text-center text-xs text-secondary-600"
       >
-        Select one number from 1 to 6. If the CoinFlip rolls your number, you win!
+        Select one number from 1 to 6. If the CoinFlip rolls your number, you
+        win!
       </motion.div>
     </div>
   );

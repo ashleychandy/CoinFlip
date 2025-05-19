@@ -5,7 +5,7 @@ import { usePollingService } from '../../services/pollingService.jsx';
 import { useWallet } from '../wallet/WalletProvider.jsx';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faCoinFlip,
+  faCoins,
   faTrophy,
   faRandom,
   faSync,
@@ -251,7 +251,7 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
             className="w-16 h-16 bg-[#22AD74]/10 rounded-full flex items-center justify-center mb-3"
           >
             <FontAwesomeIcon
-              icon={faCoinFlip}
+              icon={faCoins}
               className="text-[#22AD74] text-3xl"
             />
           </motion.div>

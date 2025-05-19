@@ -8,7 +8,7 @@
     "preview": "vite preview",
     "lint": "eslint --ext .js,.jsx src",
     "lint:fix": "eslint --ext .js,.jsx src --fix",
-    "format": "prettier --write 'src/**/*.{js,jsx,css}'",
+    "format": "prettier --write .",
     "analyze": "vite build --mode analyze"
   },
   "keywords": [
