@@ -17,11 +17,11 @@ export const NETWORKS = {
     chainId: 50,
     explorer: 'https://explorer.xinfin.network',
     contracts: {
-      dice: import.meta.env.VITE_DICE_ADDRESS,
+      CoinFlip: import.meta.env.VITE_CoinFlip_ADDRESS,
       token: import.meta.env.VITE_TOKEN_ADDRESS,
     },
     // Maintain backward compatibility
-    diceAddress: import.meta.env.VITE_DICE_ADDRESS,
+    CoinFlipAddress: import.meta.env.VITE_CoinFlip_ADDRESS,
     tokenAddress: import.meta.env.VITE_TOKEN_ADDRESS,
     icon: '🌐',
     color: '#2e7d32',
@@ -33,11 +33,11 @@ export const NETWORKS = {
     chainId: 51,
     explorer: 'https://explorer.apothem.network',
     contracts: {
-      dice: import.meta.env.VITE_APOTHEM_DICE_ADDRESS,
+      CoinFlip: import.meta.env.VITE_APOTHEM_CoinFlip_ADDRESS,
       token: import.meta.env.VITE_APOTHEM_TOKEN_ADDRESS,
     },
     // Maintain backward compatibility
-    diceAddress: import.meta.env.VITE_APOTHEM_DICE_ADDRESS,
+    CoinFlipAddress: import.meta.env.VITE_APOTHEM_CoinFlip_ADDRESS,
     tokenAddress: import.meta.env.VITE_APOTHEM_TOKEN_ADDRESS,
     icon: '🧪',
     color: '#0277bd',

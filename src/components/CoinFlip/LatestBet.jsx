@@ -5,7 +5,7 @@ import { usePollingService } from '../../services/pollingService.jsx';
 import { useWallet } from '../wallet/WalletProvider.jsx';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faDice,
+  faCoinFlip,
   faTrophy,
   faRandom,
   faSync,
@@ -251,7 +251,7 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
             className="w-16 h-16 bg-[#22AD74]/10 rounded-full flex items-center justify-center mb-3"
           >
             <FontAwesomeIcon
-              icon={faDice}
+              icon={faCoinFlip}
               className="text-[#22AD74] text-3xl"
             />
           </motion.div>
@@ -435,7 +435,7 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
         </div>
         <div className="flex flex-col justify-center items-center py-4">
           <img
-            src="/assets/dice-empty.svg"
+            src="/assets/CoinFlip-empty.svg"
             alt="No bets"
             className="w-12 h-12 mb-3"
             onError={e => {

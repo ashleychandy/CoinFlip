@@ -57,7 +57,7 @@ export const useWalletImplementation = queryClient => {
           // We can't connect contracts on unsupported networks
           dispatch({
             type: walletActionTypes.SET_CONTRACTS,
-            payload: { token: null, dice: null },
+            payload: { token: null, CoinFlip: null },
           });
           addToast(
             `Unsupported network detected (Chain ID: ${chainId}). Please switch to XDC Mainnet or Apothem Testnet.`,
@@ -167,14 +167,14 @@ export const useWalletImplementation = queryClient => {
             }
             dispatch({
               type: walletActionTypes.SET_CONTRACTS,
-              payload: { token: null, dice: null },
+              payload: { token: null, CoinFlip: null },
             });
           }
         } catch (contractError) {
           handleError(contractError, 'initializeContracts after chain change');
           dispatch({
             type: walletActionTypes.SET_CONTRACTS,
-            payload: { token: null, dice: null },
+            payload: { token: null, CoinFlip: null },
           });
         }
         // }, 1000); // Small delay to let network stabilize
@@ -532,7 +532,7 @@ export const useWalletImplementation = queryClient => {
           // Clear contracts for unsupported networks
           dispatch({
             type: walletActionTypes.SET_CONTRACTS,
-            payload: { token: null, dice: null },
+            payload: { token: null, CoinFlip: null },
           });
 
           addToast(
@@ -575,7 +575,7 @@ export const useWalletImplementation = queryClient => {
           // Clear contracts
           dispatch({
             type: walletActionTypes.SET_CONTRACTS,
-            payload: { token: null, dice: null },
+            payload: { token: null, CoinFlip: null },
           });
 
           // End loading state
@@ -609,7 +609,7 @@ export const useWalletImplementation = queryClient => {
           // Clear contracts
           dispatch({
             type: walletActionTypes.SET_CONTRACTS,
-            payload: { token: null, dice: null },
+            payload: { token: null, CoinFlip: null },
           });
 
           // End loading state

@@ -6,7 +6,7 @@ import dataSyncService from './DataSyncService';
  *
  * @param {Object} options Configuration options for the service
  * @param {Object} options.queryClient React Query client instance
- * @param {Object} options.contracts Contract instances (dice, token, etc.)
+ * @param {Object} options.contracts Contract instances (CoinFlip, token, etc.)
  * @param {number} options.refreshInterval Refresh interval in milliseconds (default: 5000)
  * @returns {Object} The initialized DataSyncService instance
  */

@@ -146,16 +146,16 @@ export const calculatePercentage = (value, percentage) => {
 };
 
 /**
- * Format dice roll result for display, handling special result codes
- * @param {Number|String} result - Dice roll result (1-6 or special code)
+ * Format CoinFlip roll result for display, handling special result codes
+ * @param {Number|String} result - CoinFlip roll result (1-6 or special code)
  * @returns {String} Formatted result
  */
-export const formatDiceResult = result => {
+export const formatCoinFlipResult = result => {
   if (!result && result !== 0) return '?';
 
   const num = Number(result);
 
-  // Regular dice roll (1-6)
+  // Regular CoinFlip roll (1-6)
   if (num >= 1 && num <= 6) {
     return num.toString();
   }

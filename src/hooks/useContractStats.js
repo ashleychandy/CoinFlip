@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { useDiceContract } from './useDiceContract';
+import { useCoinFlipContract } from './useCoinFlipContract';
 import { useWallet } from '../components/wallet/WalletProvider';
 import { safeContractCall } from '../utils/contractUtils';
 
 export const useContractStats = () => {
-  const { contract } = useDiceContract();
+  const { contract } = useCoinFlipContract();
   const { account } = useWallet();
 
   const {

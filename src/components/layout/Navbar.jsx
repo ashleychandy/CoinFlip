@@ -81,7 +81,7 @@ const Navbar = () => {
                   : 'text-white'
               } text-transparent bg-clip-text group-hover:to-[#22AD74] transition-all duration-300`}
             >
-              Dice
+              CoinFlip
             </span>
           </a>
         </div>

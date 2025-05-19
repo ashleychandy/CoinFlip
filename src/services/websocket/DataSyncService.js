@@ -108,7 +108,7 @@ class DataSyncService {
    * Set up contract event listeners for real-time updates
    */
   setupEventListeners() {
-    if (!this.contracts?.dice) return;
+    if (!this.contracts?.CoinFlip) return;
 
     try {
       // Listen for bet events
@@ -145,11 +145,11 @@ class DataSyncService {
       };
 
       // Add the listeners to the contract
-      this.contracts.dice.on('BetPlaced', this.listeners.betPlaced);
-      this.contracts.dice.on('GameCompleted', this.listeners.gameCompleted);
-      this.contracts.dice.on('GameRecovered', this.listeners.gameRecovered);
-      this.contracts.dice.on('Paused', this.listeners.paused);
-      this.contracts.dice.on('Unpaused', this.listeners.unpaused);
+      this.contracts.CoinFlip.on('BetPlaced', this.listeners.betPlaced);
+      this.contracts.CoinFlip.on('GameCompleted', this.listeners.gameCompleted);
+      this.contracts.CoinFlip.on('GameRecovered', this.listeners.gameRecovered);
+      this.contracts.CoinFlip.on('Paused', this.listeners.paused);
+      this.contracts.CoinFlip.on('Unpaused', this.listeners.unpaused);
     } catch (error) {
       // Error handling without logging
     }
@@ -159,15 +159,15 @@ class DataSyncService {
    * Remove all contract event listeners
    */
   removeEventListeners() {
-    if (!this.contracts?.dice) return;
+    if (!this.contracts?.CoinFlip) return;
 
     try {
       // Clean up all listeners
-      this.contracts.dice.removeAllListeners('BetPlaced');
-      this.contracts.dice.removeAllListeners('GameCompleted');
-      this.contracts.dice.removeAllListeners('GameRecovered');
-      this.contracts.dice.removeAllListeners('Paused');
-      this.contracts.dice.removeAllListeners('Unpaused');
+      this.contracts.CoinFlip.removeAllListeners('BetPlaced');
+      this.contracts.CoinFlip.removeAllListeners('GameCompleted');
+      this.contracts.CoinFlip.removeAllListeners('GameRecovered');
+      this.contracts.CoinFlip.removeAllListeners('Paused');
+      this.contracts.CoinFlip.removeAllListeners('Unpaused');
     } catch (error) {
       // Error handling without logging
     }

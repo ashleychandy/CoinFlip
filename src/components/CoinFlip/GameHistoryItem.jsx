@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faChevronDown,
   faChevronUp,
-  faDice,
+  faCoinFlip,
   faClock,
   faCoins,
   faRandom,
@@ -126,7 +126,7 @@ const getResultIcon = resultType => {
     case 'RECOVERED':
       return faSync;
     default:
-      return faDice;
+      return faCoinFlip;
   }
 };
 
@@ -277,7 +277,7 @@ const GameHistoryItem = ({ game, index, compact = false }) => {
                 className={`w-6 h-6 rounded-full ${cardStyles.badge} flex items-center justify-center`}
               >
                 <FontAwesomeIcon
-                  icon={faDice}
+                  icon={faCoinFlip}
                   className={`${cardStyles.icon} w-3 h-3`}
                 />
               </div>

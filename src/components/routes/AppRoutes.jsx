@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useState, useCallback } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import DicePage from '../../pages/Dice.jsx';
+import CoinFlipPage from '../../pages/CoinFlip.jsx';
 import { useWallet } from '../wallet/WalletProvider';
 import { useNotification } from '../../contexts/NotificationContext.jsx';
 import LoadingSpinner from '../ui/LoadingSpinner.jsx';
@@ -38,15 +38,15 @@ const AppRoutes = () => {
     }
   }, [chainId, account, addToast]);
 
-  // Create a properly structured contracts object for the DicePage
+  // Create a properly structured contracts object for the CoinFlipPage
   // with safeguards against missing contracts
   const mappedContracts = useMemo(() => {
     // Handle case where contracts is null/undefined
     if (!contracts) {
-      return { token: null, dice: null };
+      return { token: null, CoinFlip: null };
     }
 
-    let diceContract = null;
+    let CoinFlipContract = null;
     let tokenContract = null;
 
     // Handle different contract structure formats
@@ -56,33 +56,35 @@ const AppRoutes = () => {
       tokenContract = contracts.token;
     }
 
-    if (contracts?.diceContract) {
-      diceContract = contracts.diceContract;
-    } else if (contracts?.dice) {
-      diceContract = contracts.dice;
+    if (contracts?.CoinFlipContract) {
+      CoinFlipContract = contracts.CoinFlipContract;
+    } else if (contracts?.CoinFlip) {
+      CoinFlipContract = contracts.CoinFlip;
     }
 
-    // Add the placeBet method to the dice contract if it has playDice but not placeBet
+    // Add the placeBet method to the CoinFlip contract if it has playCoinFlip but not placeBet
     if (
-      diceContract &&
-      typeof diceContract.playDice === 'function' &&
-      typeof diceContract.placeBet !== 'function'
+      CoinFlipContract &&
+      typeof CoinFlipContract.playCoinFlip === 'function' &&
+      typeof CoinFlipContract.placeBet !== 'function'
     ) {
-      diceContract.placeBet = diceContract.playDice.bind(diceContract);
+      CoinFlipContract.placeBet =
+        CoinFlipContract.playCoinFlip.bind(CoinFlipContract);
     }
 
-    // Add the playDice method to the dice contract if it has placeBet but not playDice
+    // Add the playCoinFlip method to the CoinFlip contract if it has placeBet but not playCoinFlip
     if (
-      diceContract &&
-      typeof diceContract.placeBet === 'function' &&
-      typeof diceContract.playDice !== 'function'
+      CoinFlipContract &&
+      typeof CoinFlipContract.placeBet === 'function' &&
+      typeof CoinFlipContract.playCoinFlip !== 'function'
     ) {
-      diceContract.playDice = diceContract.placeBet.bind(diceContract);
+      CoinFlipContract.playCoinFlip =
+        CoinFlipContract.placeBet.bind(CoinFlipContract);
     }
 
     return {
       token: tokenContract,
-      dice: diceContract,
+      CoinFlip: CoinFlipContract,
     };
   }, [contracts]);
 
@@ -104,7 +106,7 @@ const AppRoutes = () => {
     }
 
     // Show warning if no contracts are available
-    if (!mappedContracts.token && !mappedContracts.dice) {
+    if (!mappedContracts.token && !mappedContracts.CoinFlip) {
       if (account && !contractCheckDone) {
         // Show network-specific error message
         if (networkName === 'unknown') {
@@ -130,7 +132,7 @@ const AppRoutes = () => {
     }
 
     // Show specific warnings for missing contracts
-    if (!mappedContracts.token && mappedContracts.dice) {
+    if (!mappedContracts.token && mappedContracts.CoinFlip) {
       if (account && !contractCheckDone) {
         addToast(
           'Token contract not available. Some features may not work.',
@@ -140,10 +142,10 @@ const AppRoutes = () => {
       }
     }
 
-    if (mappedContracts.token && !mappedContracts.dice) {
+    if (mappedContracts.token && !mappedContracts.CoinFlip) {
       if (account && !contractCheckDone) {
         addToast(
-          'Dice contract not available. Game features will not work.',
+          'CoinFlip contract not available. Game features will not work.',
           'error'
         );
         setContractCheckDone(true);
@@ -151,7 +153,7 @@ const AppRoutes = () => {
     }
 
     // If we have both contracts, reset the check flag
-    if (mappedContracts.token && mappedContracts.dice) {
+    if (mappedContracts.token && mappedContracts.CoinFlip) {
       setContractCheckDone(false);
     }
   }, [
@@ -195,22 +197,24 @@ const AppRoutes = () => {
 
     // Check if the expected contract addresses match the current network
     if (NETWORK_CONFIG?.[networkName]?.contracts) {
-      const expectedDiceAddress = NETWORK_CONFIG[networkName].contracts.dice;
+      const expectedCoinFlipAddress =
+        NETWORK_CONFIG[networkName].contracts.CoinFlip;
       const expectedTokenAddress = NETWORK_CONFIG[networkName].contracts.token;
 
-      const currentDiceAddress =
-        mappedContracts.dice?.address || mappedContracts.dice?.target;
+      const currentCoinFlipAddress =
+        mappedContracts.CoinFlip?.address || mappedContracts.CoinFlip?.target;
       const currentTokenAddress =
         mappedContracts.token?.address || mappedContracts.token?.target;
 
       // If we have expected addresses but they don't match the current contract addresses
       if (
-        expectedDiceAddress &&
-        currentDiceAddress &&
-        expectedDiceAddress.toLowerCase() !== currentDiceAddress.toLowerCase()
+        expectedCoinFlipAddress &&
+        currentCoinFlipAddress &&
+        expectedCoinFlipAddress.toLowerCase() !==
+          currentCoinFlipAddress.toLowerCase()
       ) {
         addToast(
-          "Dice contract address doesn't match the current network. Please check your wallet connection.",
+          "CoinFlip contract address doesn't match the current network. Please check your wallet connection.",
           'warning'
         );
       }
@@ -233,7 +237,7 @@ const AppRoutes = () => {
     walletLoading ||
     (isWalletConnected &&
       account &&
-      !mappedContracts.dice &&
+      !mappedContracts.CoinFlip &&
       !mappedContracts.token &&
       !contractCheckDone)
   ) {
@@ -264,7 +268,7 @@ const AppRoutes = () => {
       <Route
         path="/"
         element={
-          <DicePage
+          <CoinFlipPage
             contracts={mappedContracts}
             account={account}
             onError={handleErrorWithToast}

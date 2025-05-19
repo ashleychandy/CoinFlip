@@ -3,26 +3,26 @@ import { motion } from 'framer-motion';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   faRandom,
-  faDice,
+  faCoinFlip,
   faCubes,
   faChartLine,
 } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 // Import components
-import BalancePanel from '../components/dice/BalancePanel';
-import BetInput from '../components/dice/BetInput';
-import DiceVisualizer from '../components/dice/DiceVisualizer';
-import LatestBet from '../components/dice/LatestBet';
-import GameHistory from '../components/dice/GameHistory';
-import NumberSelector from '../components/dice/NumberSelector';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
-import { VrfRecoveryModal } from '../components/vrf';
+import BalancePanel from '../components/CoinFlip/BalancePanel.jsx';
+import BetInput from '../components/CoinFlip/BetInput.jsx';
+import CoinFlipVisualizer from '../components/CoinFlip/CoinFlipVisualizer';
+import LatestBet from '../components/CoinFlip/LatestBet.jsx';
+import GameHistory from '../components/CoinFlip/GameHistory.jsx';
+import NumberSelector from '../components/CoinFlip/NumberSelector.jsx';
+import LoadingSpinner from '../components/ui/LoadingSpinner.jsx';
+import { VrfRecoveryModal } from '../components/vrf/index.jsx';
 import { useWallet } from '../components/wallet/WalletProvider.jsx';
-import ApprovalGuide from '../components/dice/ApprovalGuide';
+import ApprovalGuide from '../components/CoinFlip/ApprovalGuide.jsx';
 
 // Import custom hooks
-import useGameLogic from '../hooks/useGameLogic';
+import useGameLogic from '../hooks/useGameLogic.js';
 
 // Import the pollingService to force a refresh when page loads
 import { usePollingService } from '../services/pollingService.jsx';
@@ -45,15 +45,15 @@ const WelcomeBanner = ({ onConnectClick }) => (
       <div>
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2.5 bg-[#22AD74]/30 backdrop-blur-sm rounded-full shadow-sm">
-            <FontAwesomeIcon icon={faDice} className="text-[#22AD74] text-xl" />
+            <FontAwesomeIcon icon={faCoinFlip} className="text-[#22AD74] text-xl" />
           </div>
           <h2 className="text-3xl font-bold text-[#22AD74] bg-clip-text text-transparent bg-gradient-to-r from-[#22AD74] to-[#22AD74]/70">
-            Welcome to GAMA Dice
+            Welcome to GAMA CoinFlip
           </h2>
         </div>
 
         <p className="text-gray-700 mb-5 text-lg">
-          Choose your number, place your bet, and roll the dice for a chance to
+          Choose your number, place your bet, and roll the CoinFlip for a chance to
           win up to 6x your stake!
         </p>
 
@@ -79,7 +79,7 @@ const WelcomeBanner = ({ onConnectClick }) => (
               <div className="w-6 h-6 rounded-full bg-[#22AD74]/20 flex items-center justify-center text-xs text-[#22AD74] font-bold shadow-inner">
                 3
               </div>
-              <span>Win instantly when the dice rolls your number</span>
+              <span>Win instantly when the CoinFlip rolls your number</span>
             </li>
           </ul>
         </div>
@@ -111,7 +111,7 @@ const WelcomeBanner = ({ onConnectClick }) => (
   </motion.div>
 );
 
-const DicePage = ({ contracts, account, onError, addToast }) => {
+const CoinFlipPage = ({ contracts, account, onError, addToast }) => {
   const [lastBetAmount, setLastBetAmount] = useState(null);
   const [lastBetDetails, setLastBetDetails] = useState(null);
   const queryClient = useQueryClient();
@@ -264,7 +264,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
 
   // Debug approval state
   useEffect(() => {
-    if (contracts?.token && contracts?.dice && account) {
+    if (contracts?.token && contracts?.CoinFlip && account) {
       // Add a window method to force show the approve button for testing
       window.forceShowApprove = () => {
         document
@@ -296,7 +296,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
       >
         <div className="text-center">
           <h1 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gaming-primary to-gaming-primary-light mb-4">
-            Dice Game
+            CoinFlip Game
           </h1>
           <p className="text-secondary-700 text-lg max-w-2xl mx-auto">
             Choose a number, place your bet, and test your luck! Win up to 6x
@@ -452,7 +452,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                         {gameState.isRolling &&
                         gameStatus?.isActive &&
                         !gameStatus?.isCompleted
-                          ? 'Rolling dice...'
+                          ? 'Rolling CoinFlip...'
                           : 'Processing your bet...'}
                       </span>
                     </span>
@@ -484,7 +484,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                           d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                         ></path>
                       </svg>
-                      Roll Dice
+                      Roll CoinFlip
                     </span>
                   )}
                 </motion.button>
@@ -512,7 +512,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
 
           {/* Right column */}
           <div className="lg:col-span-5 space-y-6">
-            {/* Dice Visualizer */}
+            {/* CoinFlip Visualizer */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -522,7 +522,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
             >
               <div className="flex flex-col items-center justify-center">
                 <div className="w-full flex items-center justify-center">
-                  <DiceVisualizer
+                  <CoinFlipVisualizer
                     isRolling={gameState.isRolling}
                     result={gameState.lastResult}
                     chosenNumber={chosenNumber}
@@ -560,7 +560,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
 
           <GameHistory
             account={account}
-            diceContract={contracts?.dice}
+            CoinFlipContract={contracts?.CoinFlip}
             onError={onError}
           />
         </motion.div>
@@ -585,7 +585,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
             <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-[#22AD74]/10 p-6 shadow-sm transition-all hover:shadow-md">
               <div className="w-12 h-12 rounded-full bg-[#22AD74]/10 flex items-center justify-center mb-4">
                 <FontAwesomeIcon
-                  icon={faDice}
+                  icon={faCoinFlip}
                   className="text-[#22AD74] text-xl"
                 />
               </div>
@@ -609,7 +609,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                   <div className="w-5 h-5 rounded-full bg-[#22AD74]/20 flex flex-shrink-0 items-center justify-center text-xs text-[#22AD74] font-bold mt-0.5">
                     3
                   </div>
-                  <span>Click &quot;Roll Dice&quot; to place your bet</span>
+                  <span>Click &quot;Roll CoinFlip&quot; to place your bet</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <div className="w-5 h-5 rounded-full bg-[#22AD74]/20 flex flex-shrink-0 items-center justify-center text-xs text-[#22AD74] font-bold mt-0.5">
@@ -621,7 +621,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                   <div className="w-5 h-5 rounded-full bg-[#22AD74]/20 flex flex-shrink-0 items-center justify-center text-xs text-[#22AD74] font-bold mt-0.5">
                     5
                   </div>
-                  <span>If the dice rolls your number, you win instantly!</span>
+                  <span>If the CoinFlip rolls your number, you win instantly!</span>
                 </li>
               </ul>
             </div>
@@ -676,7 +676,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
               </h3>
               <div className="space-y-3 text-gray-700">
                 <p>
-                  GAMA Dice uses{' '}
+                  GAMA CoinFlip uses{' '}
                   <span className="font-medium">
                     Plugin&apos;s Verifiable Random Function (VRF)
                   </span>{' '}
@@ -690,7 +690,7 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
                       Plugin VRF provides cryptographically secure randomness
                     </li>
                     <li>
-                      The dice result is determined transparently on-chain
+                      The CoinFlip result is determined transparently on-chain
                     </li>
                   </ol>
                 </div>
@@ -760,4 +760,4 @@ const DicePage = ({ contracts, account, onError, addToast }) => {
   );
 };
 
-export default DicePage;
+export default CoinFlipPage;

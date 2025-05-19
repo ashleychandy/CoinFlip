@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
 import { useWallet } from '../components/wallet/WalletProvider';
 import { ethers } from 'ethers';
 import { useNetwork } from '../contexts/NetworkContext';
-import DiceABI from '../contracts/abi/Dice.json';
+import CoinFlipABI from '../contracts/abi/CoinFlip.json';
 import TokenABI from '../contracts/abi/GamaToken.json';
 
-export const useDiceContract = () => {
+export const useCoinFlipContract = () => {
   const { provider, account } = useWallet();
   const { currentNetwork } = useNetwork();
   const [contract, setContract] = useState(null);
@@ -25,15 +25,15 @@ export const useDiceContract = () => {
         }
 
         // Handle both address structures
-        const diceAddress =
-          currentNetwork.contracts?.dice || currentNetwork.diceAddress;
+        const CoinFlipAddress =
+          currentNetwork.contracts?.CoinFlip || currentNetwork.CoinFlipAddress;
         const tokenAddress =
           currentNetwork.contracts?.token || currentNetwork.tokenAddress;
 
-        if (!diceAddress) {
+        if (!CoinFlipAddress) {
           setError(
             new Error(
-              `Dice contract address not configured for network: ${currentNetwork.name}`
+              `CoinFlip contract address not configured for network: ${currentNetwork.name}`
             )
           );
           setContract(null);
@@ -51,18 +51,18 @@ export const useDiceContract = () => {
           ? await provider.getSigner()
           : provider;
 
-        // Initialize dice contract
+        // Initialize CoinFlip contract
         try {
-          const diceContract = new ethers.Contract(
-            diceAddress,
-            DiceABI.abi,
+          const CoinFlipContract = new ethers.Contract(
+            CoinFlipAddress,
+            CoinFlipABI.abi,
             signer
           );
-          setContract(diceContract);
-        } catch (diceError) {
+          setContract(CoinFlipContract);
+        } catch (CoinFlipError) {
           setError(
             new Error(
-              `Dice contract initialization failed: ${diceError.message}`
+              `CoinFlip contract initialization failed: ${CoinFlipError.message}`
             )
           );
           setContract(null);

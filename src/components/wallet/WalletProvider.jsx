@@ -16,7 +16,7 @@ import { NETWORK_CONFIG, DEFAULT_NETWORK } from '../../config';
 import { checkRpcHealth, getAvailableProvider } from '../../utils/walletUtils';
 
 // Constants
-const WALLET_STORAGE_KEY = 'xdc_dice_wallet_connection';
+const WALLET_STORAGE_KEY = 'xdc_CoinFlip_wallet_connection';
 const CONNECTION_TIMEOUT = 10000; // 10 seconds
 
 // Create context
@@ -217,10 +217,10 @@ export const WalletProvider = ({ children }) => {
   useEffect(() => {
     // Check mainnet configuration
     const mainnetConfig = NETWORK_CONFIG?.mainnet;
-    if (!mainnetConfig?.contracts?.dice) {
+    if (!mainnetConfig?.contracts?.CoinFlip) {
       if (DEFAULT_NETWORK === 'mainnet') {
         addToast(
-          'Mainnet Dice contract is not configured. Some features may not work.',
+          'Mainnet CoinFlip contract is not configured. Some features may not work.',
           'warning'
         );
       }
@@ -228,10 +228,10 @@ export const WalletProvider = ({ children }) => {
 
     // Check testnet configuration
     const testnetConfig = NETWORK_CONFIG?.apothem;
-    if (!testnetConfig?.contracts?.dice) {
+    if (!testnetConfig?.contracts?.CoinFlip) {
       if (DEFAULT_NETWORK === 'apothem') {
         addToast(
-          'Testnet Dice contract is not configured. Some features may not work.',
+          'Testnet CoinFlip contract is not configured. Some features may not work.',
           'warning'
         );
       }
@@ -437,11 +437,11 @@ export const WalletProvider = ({ children }) => {
         }
         return walletState.contracts.token;
       },
-      getDiceContract: () => {
-        if (!walletState.contracts?.dice) {
+      getCoinFlipContract: () => {
+        if (!walletState.contracts?.CoinFlip) {
           return null;
         }
-        return walletState.contracts.dice;
+        return walletState.contracts.CoinFlip;
       },
       // Enhanced error handler
       handleErrorWithToast,
