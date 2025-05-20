@@ -1,6 +1,6 @@
 class GameService {
   constructor() {
-    this.diceContract = null;
+    this.CoinFlipContract = null;
   }
 
   // Initialize game service with contracts
@@ -10,29 +10,29 @@ class GameService {
     }
 
     // Handle different contract formats
-    if (contracts.dice) {
-      this.diceContract = contracts.dice;
-    } else if (contracts.diceContract) {
-      this.diceContract = contracts.diceContract;
+    if (contracts.CoinFlip) {
+      this.CoinFlipContract = contracts.CoinFlip;
+    } else if (contracts.CoinFlipContract) {
+      this.CoinFlipContract = contracts.CoinFlipContract;
     } else {
-      throw new Error('Dice contract not provided');
+      throw new Error('CoinFlip contract not provided');
     }
 
     // Validate that the contract has the necessary methods
     if (
-      !this.diceContract.playDice ||
-      typeof this.diceContract.playDice !== 'function'
+      !this.CoinFlipContract.playCoinFlip ||
+      typeof this.CoinFlipContract.playCoinFlip !== 'function'
     ) {
-      throw new Error('Invalid dice contract: missing playDice method');
+      throw new Error('Invalid CoinFlip contract: missing playCoinFlip method');
     }
 
     return this;
   }
 
-  // Play dice game
-  async playDice(chosenNumber, amount) {
-    if (!this.diceContract) {
-      throw new Error('Dice contract not initialized');
+  // Play CoinFlip game
+  async playCoinFlip(chosenNumber, amount) {
+    if (!this.CoinFlipContract) {
+      throw new Error('CoinFlip contract not initialized');
     }
 
     if (!chosenNumber || chosenNumber < 1 || chosenNumber > 6) {
@@ -46,7 +46,7 @@ class GameService {
     }
 
     try {
-      const tx = await this.diceContract.playDice(chosenNumber, amount);
+      const tx = await this.CoinFlipContract.playCoinFlip(chosenNumber, amount);
       const receipt = await tx.wait();
 
       return {

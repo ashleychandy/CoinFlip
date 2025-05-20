@@ -6,14 +6,14 @@ import {
   faRandom,
   faCheckCircle,
   faTimesCircle,
-  faDice,
+  faCoinFlip,
   faChartLine,
   faTrophy,
   faWallet,
   faPlayCircle,
 } from '@fortawesome/free-solid-svg-icons';
 import { useBetHistory } from '../../hooks/useBetHistory';
-import { useDiceContract } from '../../hooks/useDiceContract';
+import { useCoinFlipContract } from '../../hooks/useCoinFlipContract';
 import { useWallet } from '../wallet/WalletProvider';
 import EmptyState from './EmptyState';
 import GameHistoryItem from './GameHistoryItem';
@@ -128,7 +128,10 @@ const WelcomeNewUser = () => (
         transition={{ type: 'spring', delay: 0.1, duration: 1 }}
         className="w-24 h-24 bg-white/70 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-6 shadow-md border border-[#22AD74]/20"
       >
-        <FontAwesomeIcon icon={faDice} className="text-[#22AD74] text-4xl" />
+        <FontAwesomeIcon
+          icon={faCoinFlip}
+          className="text-[#22AD74] text-4xl"
+        />
       </motion.div>
 
       <h3 className="text-2xl font-bold text-[#22AD74] mb-3">Game History</h3>
@@ -192,8 +195,8 @@ const WelcomeNewUser = () => (
 
 const GameHistory = ({ account, onError, hideHeading = false }) => {
   const [filter, setFilter] = useState('all');
-  const { contract: diceContract, isLoading: isContractLoading } =
-    useDiceContract();
+  const { contract: CoinFlipContract, isLoading: isContractLoading } =
+    useCoinFlipContract();
   const { isWalletConnected } = useWallet();
 
   // Get isNewUser state from polling service
@@ -216,7 +219,7 @@ const GameHistory = ({ account, onError, hideHeading = false }) => {
     playerAddress: account,
     pageSize: 12,
     autoRefresh: true,
-    diceContract,
+    CoinFlipContract,
   });
 
   // Handle any errors
@@ -319,13 +322,15 @@ const GameHistory = ({ account, onError, hideHeading = false }) => {
 
   // Check if contract is available and has the necessary methods
   const contractHasRequiredMethods = useMemo(() => {
-    if (!diceContract) return false;
+    if (!CoinFlipContract) return false;
 
-    const _hasGetGameStatus = typeof diceContract.getGameStatus === 'function';
-    const hasGetBetHistory = typeof diceContract.getBetHistory === 'function';
+    const _hasGetGameStatus =
+      typeof CoinFlipContract.getGameStatus === 'function';
+    const hasGetBetHistory =
+      typeof CoinFlipContract.getBetHistory === 'function';
 
     return hasGetBetHistory;
-  }, [diceContract]);
+  }, [CoinFlipContract]);
 
   // We no longer use sample data
   const _shouldUseSampleData = useMemo(() => {
@@ -402,10 +407,10 @@ const GameHistory = ({ account, onError, hideHeading = false }) => {
     return <GameHistoryLoader />;
   }
 
-  if (!diceContract) {
+  if (!CoinFlipContract) {
     return (
       <GameHistoryError
-        error={new Error('Dice contract not initialized')}
+        error={new Error('CoinFlip contract not initialized')}
         resetError={forceRefresh}
       />
     );
@@ -430,7 +435,9 @@ const GameHistory = ({ account, onError, hideHeading = false }) => {
             <h2 className="text-2xl font-bold text-secondary-800 mb-1">
               Game History
             </h2>
-            <p className="text-secondary-600">Your recent dice game results</p>
+            <p className="text-secondary-600">
+              Your recent CoinFlip game results
+            </p>
           </div>
         )}
 
@@ -499,7 +506,7 @@ const GameHistory = ({ account, onError, hideHeading = false }) => {
               transition={{ delay: 0.1 }}
               className="text-secondary-600"
             >
-              Your recent dice game results
+              Your recent CoinFlip game results
             </motion.p>
           </div>
 

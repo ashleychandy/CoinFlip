@@ -1,8 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 
-const DiceNumber = ({ number, selected, onClick, disabled }) => {
-  // All dice numbers will use green colors
+const CoinFlipNumber = ({ number, selected, onClick, disabled }) => {
+  // All CoinFlip numbers will use green colors
   const greenColor = {
     bg: 'from-green-500 to-green-700',
     border: 'border-green-300',
@@ -32,7 +32,7 @@ const DiceNumber = ({ number, selected, onClick, disabled }) => {
         }
       `}
     >
-      {/* Dice face */}
+      {/* CoinFlip face */}
       <span className="relative z-10">{number}</span>
 
       {/* Glow effect when selected */}
@@ -44,7 +44,7 @@ const DiceNumber = ({ number, selected, onClick, disabled }) => {
         />
       )}
 
-      {/* Removed dice dot patterns */}
+      {/* Removed CoinFlip dot patterns */}
     </motion.button>
   );
 };
@@ -67,7 +67,7 @@ const NumberSelector = ({ value, onChange, disabled = false }) => {
 
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
         {numbers.map(number => (
-          <DiceNumber
+          <CoinFlipNumber
             key={number}
             number={number}
             selected={value === number}
@@ -83,7 +83,8 @@ const NumberSelector = ({ value, onChange, disabled = false }) => {
         transition={{ delay: 0.3 }}
         className="text-center text-xs text-secondary-600"
       >
-        Select one number from 1 to 6. If the dice rolls your number, you win!
+        Select one number from 1 to 6. If the CoinFlip rolls your number, you
+        win!
       </motion.div>
     </div>
   );

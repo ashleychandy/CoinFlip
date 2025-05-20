@@ -57,7 +57,7 @@ export const useWalletImplementation = queryClient => {
           // We can't connect contracts on unsupported networks
           dispatch({
             type: walletActionTypes.SET_CONTRACTS,
-            payload: { token: null, dice: null },
+            payload: { token: null, CoinFlip: null },
           });
           addToast(
             `Unsupported network detected (Chain ID: ${chainId}). Please switch to XDC Mainnet or Apothem Testnet.`,
@@ -167,14 +167,14 @@ export const useWalletImplementation = queryClient => {
             }
             dispatch({
               type: walletActionTypes.SET_CONTRACTS,
-              payload: { token: null, dice: null },
+              payload: { token: null, CoinFlip: null },
             });
           }
         } catch (contractError) {
           handleError(contractError, 'initializeContracts after chain change');
           dispatch({
             type: walletActionTypes.SET_CONTRACTS,
-            payload: { token: null, dice: null },
+            payload: { token: null, CoinFlip: null },
           });
         }
         // }, 1000); // Small delay to let network stabilize
@@ -532,7 +532,7 @@ export const useWalletImplementation = queryClient => {
           // Clear contracts for unsupported networks
           dispatch({
             type: walletActionTypes.SET_CONTRACTS,
-            payload: { token: null, dice: null },
+            payload: { token: null, CoinFlip: null },
           });
 
           addToast(
@@ -575,7 +575,7 @@ export const useWalletImplementation = queryClient => {
           // Clear contracts
           dispatch({
             type: walletActionTypes.SET_CONTRACTS,
-            payload: { token: null, dice: null },
+            payload: { token: null, CoinFlip: null },
           });
 
           // End loading state
@@ -609,7 +609,7 @@ export const useWalletImplementation = queryClient => {
           // Clear contracts
           dispatch({
             type: walletActionTypes.SET_CONTRACTS,
-            payload: { token: null, dice: null },
+            payload: { token: null, CoinFlip: null },
           });
 
           // End loading state
@@ -696,9 +696,10 @@ export const useWalletImplementation = queryClient => {
             const signer = await state.provider.getSigner(newAccount);
 
             // If we have existing contracts, reinitialize them with the new signer
-            if (state.contracts?.token && state.contracts?.dice) {
+            if (state.contracts?.token && state.contracts?.CoinFlip) {
               const tokenAddress = await state.contracts.token.getAddress();
-              const diceAddress = await state.contracts.dice.getAddress();
+              const CoinFlipAddress =
+                await state.contracts.CoinFlip.getAddress();
 
               // Create new contract instances with the new signer
               const tokenContract = new ethers.Contract(
@@ -707,16 +708,16 @@ export const useWalletImplementation = queryClient => {
                 signer
               );
 
-              const diceContract = new ethers.Contract(
-                diceAddress,
-                state.contracts.dice.interface,
+              const CoinFlipContract = new ethers.Contract(
+                CoinFlipAddress,
+                state.contracts.CoinFlip.interface,
                 signer
               );
 
               // Update contracts in state
               dispatch({
                 type: walletActionTypes.SET_CONTRACTS,
-                payload: { token: tokenContract, dice: diceContract },
+                payload: { token: tokenContract, CoinFlip: CoinFlipContract },
               });
             } else {
               // If we don't have existing contracts, initialize new ones

@@ -1,12 +1,16 @@
 import { motion } from 'framer-motion';
 import React, { useRef, useState, useEffect } from 'react';
-import { useDiceNumber } from '../../hooks/useDiceNumber';
+import { useCoinFlipNumber } from '../../hooks/useCoinFlipNumber';
 import { usePollingService } from '../../services/pollingService.jsx';
 
 /**
- * Simplified Dice Visualizer Component focused only on dice display
+ * Simplified CoinFlip Visualizer Component focused only on CoinFlip display
  */
-const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
+const CoinFlipVisualizer = ({
+  chosenNumber,
+  isRolling = false,
+  result = null,
+}) => {
   const timeoutRefs = useRef([]);
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -14,8 +18,8 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
   const vrfStartTimeRef = useRef(null);
   const prevNumberRef = useRef(null);
 
-  // Manage dice rolling state directly
-  const [shouldRollDice, setShouldRollDice] = useState(false);
+  // Manage CoinFlip rolling state directly
+  const [shouldRollCoinFlip, setShouldRollCoinFlip] = useState(false);
 
   // We now manage processing state internally rather than from the hook
   const [processingVrf, setProcessingVrf] = useState(false);
@@ -23,26 +27,26 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
   // Use polling service to get current game status
   const { gameStatus } = usePollingService();
 
-  // Use the custom hook to handle dice number state with error handling
+  // Use the custom hook to handle CoinFlip number state with error handling
   // Only using displayNumber from the hook now
-  const { displayNumber } = useDiceNumber(result, chosenNumber, isRolling);
+  const { displayNumber } = useCoinFlipNumber(result, chosenNumber, isRolling);
 
   // Track number changes to trigger dot animations
   const [animationKey, setAnimationKey] = useState(0);
 
   // Reset animation key when display number changes
   useEffect(() => {
-    if (displayNumber !== prevNumberRef.current && !shouldRollDice) {
+    if (displayNumber !== prevNumberRef.current && !shouldRollCoinFlip) {
       prevNumberRef.current = displayNumber;
       setAnimationKey(prevKey => prevKey + 1);
     }
-  }, [displayNumber, shouldRollDice]);
+  }, [displayNumber, shouldRollCoinFlip]);
 
-  // Direct control of dice rolling
+  // Direct control of CoinFlip rolling
   useEffect(() => {
     // Start rolling
     if (isRolling && !result) {
-      setShouldRollDice(true);
+      setShouldRollCoinFlip(true);
       setProcessingVrf(true);
     }
 
@@ -53,18 +57,18 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
         result.requestFulfilled === true ||
         result.vrfComplete === true)
     ) {
-      setShouldRollDice(false);
+      setShouldRollCoinFlip(false);
       setProcessingVrf(false);
     }
     // For pending VRF results, keep processing state active
     else if (result && result.vrfPending) {
-      setShouldRollDice(true);
+      setShouldRollCoinFlip(true);
       setProcessingVrf(true);
     }
 
     // Stop rolling when blockchain says request is processed
     if (gameStatus?.requestProcessed) {
-      setShouldRollDice(false);
+      setShouldRollCoinFlip(false);
       setProcessingVrf(false);
     }
   }, [isRolling, processingVrf, result, gameStatus]);
@@ -72,10 +76,10 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
   // Maximum animation duration of 10 seconds
   useEffect(() => {
     let maxDurationTimer;
-    if (shouldRollDice) {
-      // Force stop the dice roll after 10 seconds maximum
+    if (shouldRollCoinFlip) {
+      // Force stop the CoinFlip roll after 10 seconds maximum
       maxDurationTimer = setTimeout(() => {
-        setShouldRollDice(false);
+        setShouldRollCoinFlip(false);
         setProcessingVrf(false);
       }, 10000);
     }
@@ -85,7 +89,7 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
         clearTimeout(maxDurationTimer);
       }
     };
-  }, [shouldRollDice]);
+  }, [shouldRollCoinFlip]);
 
   // Check contract state on component load to maintain VRF status
   useEffect(() => {
@@ -96,7 +100,7 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
       !gameStatus?.requestProcessed
     ) {
       setProcessingVrf(true);
-      setShouldRollDice(true);
+      setShouldRollCoinFlip(true);
 
       // Set the start time to the game's timestamp if available, or current time
       if (!vrfStartTimeRef.current && gameStatus?.lastPlayTimestamp) {
@@ -106,7 +110,7 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
     } else if (gameStatus?.requestProcessed) {
       // If blockchain says request is processed, stop processing and rolling
       setProcessingVrf(false);
-      setShouldRollDice(false);
+      setShouldRollCoinFlip(false);
     }
   }, [gameStatus]);
 
@@ -118,7 +122,7 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
     ) {
       prevResultRef.current = result;
       // When we get a new result, stop rolling
-      setShouldRollDice(false);
+      setShouldRollCoinFlip(false);
     }
   }, [result]);
 
@@ -144,7 +148,7 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
         (displayNumber < 1 || displayNumber > 6 || isNaN(displayNumber))
       ) {
         setHasError(true);
-        setErrorMessage(`Invalid dice number: ${displayNumber}`);
+        setErrorMessage(`Invalid CoinFlip number: ${displayNumber}`);
       } else {
         // Reset error state if everything is valid
         setHasError(false);
@@ -152,18 +156,18 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
       }
     } catch (error) {
       setHasError(true);
-      setErrorMessage(error.message || 'Error rendering dice');
+      setErrorMessage(error.message || 'Error rendering CoinFlip');
     }
   }, [displayNumber]);
 
-  // Function to render a dot in the dice with enhanced animations
+  // Function to render a dot in the CoinFlip with enhanced animations
   const renderDot = (size = 'w-5 h-5', index = 0) => (
     <motion.div
       key={`dot-${animationKey}-${index}`}
-      className={`${size} dice-dot`}
+      className={`${size} CoinFlip-dot`}
       initial={{ scale: 0, opacity: 0 }}
       animate={
-        shouldRollDice
+        shouldRollCoinFlip
           ? {
               // Slow, smooth blinking animation during rolling state
               opacity: [0.5, 1, 0.5],
@@ -187,7 +191,7 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
             }
       }
       transition={
-        shouldRollDice
+        shouldRollCoinFlip
           ? {
               // Slow, smooth transition for rolling state
               repeat: Infinity,
@@ -206,7 +210,7 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
       }
       style={{
         backgroundColor: 'white',
-        boxShadow: shouldRollDice
+        boxShadow: shouldRollCoinFlip
           ? '0 0 5px rgba(255,255,255,0.6)'
           : '0 0 3px rgba(0,0,0,0.2)',
         borderRadius: '50%',
@@ -214,12 +218,12 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
     />
   );
 
-  // Function to render the dice face based on number
-  const renderDiceFace = number => {
+  // Function to render the CoinFlip face based on number
+  const renderCoinFlipFace = number => {
     // Default to 1 for invalid numbers to prevent UI errors
     const safeNumber = number >= 1 && number <= 6 ? number : 1;
 
-    // Configuration for dot positions based on dice number
+    // Configuration for dot positions based on CoinFlip number
     const dotConfigurations = {
       1: (
         <div className="absolute inset-0 flex items-center justify-center p-6">
@@ -351,9 +355,9 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
   // Fallback UI for error state
   if (hasError) {
     return (
-      <div className="dice-container flex items-center justify-center bg-red-100 border border-red-300 rounded-lg p-4">
+      <div className="CoinFlip-container flex items-center justify-center bg-red-100 border border-red-300 rounded-lg p-4">
         <div className="text-red-700 text-center">
-          <p className="font-medium">Error displaying dice</p>
+          <p className="font-medium">Error displaying CoinFlip</p>
           <p className="text-sm">{errorMessage || 'Please try again'}</p>
         </div>
       </div>
@@ -364,17 +368,17 @@ const DiceVisualizer = ({ chosenNumber, isRolling = false, result = null }) => {
       className="relative w-full h-full flex flex-col items-center justify-center"
       style={{ perspective: '1000px' }}
     >
-      {/* Main Dice */}
+      {/* Main CoinFlip */}
       <motion.div
-        className="dice-face"
+        className="CoinFlip-face"
         variants={rollingVariants}
-        animate={shouldRollDice ? 'rolling' : 'static'}
-        data-rolling={shouldRollDice ? 'true' : 'false'}
+        animate={shouldRollCoinFlip ? 'rolling' : 'static'}
+        data-rolling={shouldRollCoinFlip ? 'true' : 'false'}
       >
-        {renderDiceFace(displayNumber)}
+        {renderCoinFlipFace(displayNumber)}
       </motion.div>
     </div>
   );
 };
 
-export default DiceVisualizer;
+export default CoinFlipVisualizer;

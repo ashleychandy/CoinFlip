@@ -36,7 +36,7 @@ interface IERC20 {
 struct GameState {
     bool isActive;
     bool completed;
-    uint8 chosenNumber;
+    uint8 chosenSide;
     uint8 result;
     uint256 amount;
     uint256 payout;
@@ -47,8 +47,8 @@ struct GameState {
  * @dev Records individual bet data with optimized storage
  */
 struct BetHistory {
-    uint8 chosenNumber;
-    uint8 rolledNumber;
+    uint8 chosenSide;
+    uint8 flippedResult;
     uint32 timestamp;
     uint256 amount;
     uint256 payout;
@@ -69,12 +69,12 @@ struct UserData {
 }
 
 /**
- * @title Dice
- * @dev Provably fair dice game using Plugin VRF for randomness
+ * @title CoinFlip
+ * @dev Provably fair coin flip game using Chainlink VRF for randomness
  */
-contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
+contract CoinFlip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
     // ============ Events ============
-    event BetPlaced(address indexed player, uint256 requestId, uint8 chosenNumber, uint256 amount);
+    event BetPlaced(address indexed player, uint256 requestId, uint8 chosenSide, uint256 amount);
     event GameCompleted(address indexed player, uint256 requestId, uint8 result, uint256 payout);
     event GameRecovered(address indexed player, uint256 requestId, uint256 refundAmount);
 
@@ -92,11 +92,12 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
     error MaxPayoutExceeded(uint256 potentialPayout, uint256 maxAllowed);
 
     // ============ Constants ============
-    uint8 private constant MAX_NUMBER = 6;
+    uint8 public constant HEADS = 1;
+    uint8 public constant TAILS = 2;
+    uint8 private constant MAX_SIDES = 2;
     uint8 public constant MAX_HISTORY_SIZE = 10;
-    uint256 public constant DENOMINATOR = 10000;
     uint256 public constant MAX_BET_AMOUNT = 10_000_000 * 10**18;
-    uint256 public constant MAX_POSSIBLE_PAYOUT = 60_000_000 * 10**18; // 10M * 6
+    uint256 public constant MAX_POSSIBLE_PAYOUT = 20_000_000 * 10**18; // 10M * 2
     uint32 private constant GAME_TIMEOUT = 1 hours;
     uint256 private constant BLOCK_THRESHOLD = 300;
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
@@ -138,7 +139,7 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
      * @notice Contract constructor
      * @param _gamaTokenAddress Address of the token contract
      * @param vrfCoordinator Address of the VRF coordinator
-     * @param subscriptionId Plugin VRF subscription ID
+     * @param subscriptionId Chainlink VRF subscription ID
      * @param keyHash VRF key hash for the network
      * @param _callbackGasLimit Gas limit for VRF callback
      * @param _requestConfirmations Number of confirmations for VRF request
@@ -169,17 +170,17 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
 
     // ============ External Functions ============
     /**
-     * @notice Place a bet on a dice number
-     * @param chosenNumber Number to bet on (1-6)
+     * @notice Place a bet on a coin flip (heads or tails)
+     * @param chosenSide Side to bet on (1=HEADS, 2=TAILS)
      * @param amount Token amount to bet
      * @return requestId VRF request ID
      */
-    function playDice(uint8 chosenNumber, uint256 amount) external nonReentrant whenNotPaused returns (uint256 requestId) {
+    function flipCoin(uint8 chosenSide, uint256 amount) external nonReentrant whenNotPaused returns (uint256 requestId) {
         // ===== CHECKS =====
         // 1. Basic input validation
         if (amount == 0) revert InvalidBetParameters("Bet amount cannot be zero");
         if (amount > MAX_BET_AMOUNT) revert InvalidBetParameters("Bet amount too large");
-        if (chosenNumber < 1 || chosenNumber > MAX_NUMBER) revert InvalidBetParameters("Invalid chosen number");
+        if (chosenSide != HEADS && chosenSide != TAILS) revert InvalidBetParameters("Invalid chosen side (must be 1 for HEADS or 2 for TAILS)");
 
         // 2. Check if user has an active game
         UserData storage user = userData[msg.sender];
@@ -190,8 +191,8 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         _checkBalancesAndAllowances(msg.sender, amount);
 
         // Calculate potential payout
-        uint256 potentialPayout = amount * 6;
-        if (potentialPayout / 6 != amount) revert PayoutCalculationError("Payout calculation overflow");
+        uint256 potentialPayout = amount * 2;
+        if (potentialPayout / 2 != amount) revert PayoutCalculationError("Payout calculation overflow");
         if (potentialPayout > MAX_POSSIBLE_PAYOUT) {
             revert MaxPayoutExceeded(potentialPayout, MAX_POSSIBLE_PAYOUT);
         }
@@ -234,7 +235,7 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         user.currentGame = GameState({
             isActive: true,
             completed: false,
-            chosenNumber: chosenNumber,
+            chosenSide: chosenSide,
             result: 0,
             amount: amount,
             payout: 0
@@ -242,7 +243,7 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         
         user.currentRequestId = requestId;
         
-        emit BetPlaced(msg.sender, requestId, chosenNumber, amount);
+        emit BetPlaced(msg.sender, requestId, chosenSide, amount);
         
         return requestId;
     }
@@ -284,21 +285,21 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         }
 
         // Cache important values
-        uint8 chosenNumber = user.currentGame.chosenNumber;
+        uint8 chosenSide = user.currentGame.chosenSide;
         uint256 betAmount = user.currentGame.amount;
         
         // ===== EFFECTS =====
-        // 1. Calculate result
-        uint8 result = uint8(randomWords[0] % MAX_NUMBER + 1);
+        // 1. Calculate result (HEADS=1, TAILS=2)
+        uint8 result = uint8((randomWords[0] % MAX_SIDES) + 1);
         
         // 2. Calculate payout
         uint256 payout = 0;
-        if (chosenNumber == result) {
+        if (chosenSide == result) {
             // Ensure safe multiplication
-            if (betAmount > type(uint256).max / 6) {
+            if (betAmount > type(uint256).max / 2) {
                 revert PayoutCalculationError("Bet amount too large for payout calculation");
             }
-            payout = betAmount * 6;
+            payout = betAmount * 2;
         }
 
         // 4. Update game state
@@ -310,14 +311,12 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         // 5. Update game history
         _updateUserHistory(
             user,
-            chosenNumber,
+            chosenSide,
             result,
             betAmount,
             payout
         );
 
-        // 6. Update global statistics
-        totalGamesPlayed++;
         if (payout > 0) {
             totalPayoutAmount += payout;
         }
@@ -325,7 +324,9 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         // Cleanup
         delete requestToPlayer[requestId];
         delete activeRequestIds[requestId];
+        delete s_requests[requestId];
         user.currentRequestId = 0;
+        user.requestFulfilled = false;
 
         // ===== INTERACTIONS =====
         // Process payout if player won
@@ -411,12 +412,13 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         // Add to bet history
         _updateUserHistory(
             user,
-            user.currentGame.chosenNumber,
+            user.currentGame.chosenSide,
             RESULT_RECOVERED,
             refundAmount,
             refundAmount
         );
 
+       
         emit GameRecovered(msg.sender, requestId, refundAmount);
     }
 
@@ -483,12 +485,13 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         // Add to bet history
         _updateUserHistory(
             user,
-            user.currentGame.chosenNumber,
+            user.currentGame.chosenSide,
             RESULT_FORCE_STOPPED,
             refundAmount,
             refundAmount
         );
 
+        
         emit GameRecovered(player, requestId, refundAmount);
     }
 
@@ -524,7 +527,7 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         );
     }
 
-    /*
+    /**
      * @notice Get player's bet history
      * @param player Player address
      * @return Array of past bets (newest to oldest)
@@ -597,7 +600,7 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         bool isActive,
         bool isWin,
         bool isCompleted,
-        uint8 chosenNumber,
+        uint8 chosenSide,
         uint256 amount,
         uint8 result,
         uint256 payout,
@@ -613,15 +616,15 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         
         isActive = user.currentGame.isActive;
         isCompleted = user.currentGame.completed;
-        chosenNumber = user.currentGame.chosenNumber;
+        chosenSide = user.currentGame.chosenSide;
         amount = user.currentGame.amount;
         result = user.currentGame.result;
         payout = user.currentGame.payout;
         requestId = user.currentRequestId;
         lastPlayTimestamp = user.lastPlayedTimestamp;
         
-        // Natural win if payout > 0 and result is 1-6
-        isWin = payout > 0 && result > 0 && result <= MAX_NUMBER;
+        // Natural win if payout > 0 and result is either HEADS or TAILS
+        isWin = payout > 0 && (result == HEADS || result == TAILS);
         
         requestExists = false;
         requestProcessed = false;
@@ -675,21 +678,21 @@ contract Dice is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
     /**
      * @dev Add bet to player's history using circular buffer
      * @param user User data reference
-     * @param chosenNumber Player's selected number
-     * @param result Roll result
+     * @param chosenSide Player's chosen side (HEADS or TAILS)
+     * @param result Flip result
      * @param amount Bet amount
      * @param payout Win amount
      */
     function _updateUserHistory(
         UserData storage user,
-        uint8 chosenNumber,
+        uint8 chosenSide,
         uint8 result,
         uint256 amount,
         uint256 payout
     ) private {
         BetHistory memory newBet = BetHistory({
-            chosenNumber: chosenNumber,
-            rolledNumber: result,
+            chosenSide: chosenSide,
+            flippedResult: result,
             amount: amount,
             timestamp: uint32(block.timestamp),
             payout: payout

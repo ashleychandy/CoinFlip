@@ -5,7 +5,7 @@ import { usePollingService } from '../../services/pollingService.jsx';
 import { useWallet } from '../wallet/WalletProvider.jsx';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faDice,
+  faCoinFlip,
   faTrophy,
   faRandom,
   faSync,
@@ -240,7 +240,7 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
   // Component for card header with pill-shaped status indicator
   const CardHeader = ({
     title = 'Latest Roll',
-    icon = faDice,
+    icon = faCoinFlip,
     color = 'text-gray-400',
     status = null,
   }) => (
@@ -271,11 +271,15 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
         className={`${baseCardStyle}`}
         style={{ borderLeft: '3px solid #10b981' }}
       >
-        <CardHeader title="Welcome!" icon={faDice} color="text-emerald-400" />
+        <CardHeader
+          title="Welcome!"
+          icon={faCoinFlip}
+          color="text-emerald-400"
+        />
         <div className="flex items-center space-x-3.5">
           <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 rounded-md p-2.5 flex items-center justify-center w-10 h-10">
             <FontAwesomeIcon
-              icon={faDice}
+              icon={faCoinFlip}
               className="text-emerald-500 text-lg"
             />
           </div>
@@ -633,7 +637,7 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
       : {
           bg: 'from-rose-50 to-rose-100/50',
           text: 'text-rose-500',
-          icon: faDice,
+          icon: faCoinFlip,
           accent: '#f43f5e',
           status: 'Loss',
         };
@@ -738,7 +742,10 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
       <CardHeader />
       <div className="flex items-center space-x-3.5">
         <div className="bg-gradient-to-br from-gray-50 to-gray-100/50 rounded-md p-2.5 flex items-center justify-center w-10 h-10">
-          <FontAwesomeIcon icon={faDice} className="text-gray-300 text-lg" />
+          <FontAwesomeIcon
+            icon={faCoinFlip}
+            className="text-gray-300 text-lg"
+          />
         </div>
         <div>
           <p className="text-gray-500 text-sm">No bet history available</p>

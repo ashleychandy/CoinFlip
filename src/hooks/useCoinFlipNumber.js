@@ -1,21 +1,21 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useContractConstants } from './useContractConstants';
+import { useContractConstants } from './useContractConstants.js';
 import { usePollingService } from '../services/pollingService.jsx';
 
 /**
- * Simplified custom hook to manage dice number display
+ * Simplified custom hook to manage CoinFlip number display
  *
  * @param {Object|null} result - The game result object
  * @param {Number|null} chosenNumber - The number chosen by the player
- * @param {Boolean} isRolling - Whether the dice is currently rolling
- * @returns {Object} - The dice number to display
+ * @param {Boolean} isRolling - Whether the CoinFlip is currently rolling
+ * @returns {Object} - The CoinFlip number to display
  */
-export const useDiceNumber = (result, chosenNumber, isRolling) => {
+export const useCoinFlipNumber = (result, chosenNumber, isRolling) => {
   const { constants } = useContractConstants();
   const { gameStatus } = usePollingService();
 
-  // State for dice number management
-  const [randomDiceNumber, setRandomDiceNumber] = useState(1);
+  // State for CoinFlip number management
+  const [randomCoinFlipNumber, setRandomCoinFlipNumber] = useState(1);
   const [rolledNumber, setRolledNumber] = useState(null);
   const [lastRolledNumber, setLastRolledNumber] = useState(null);
 
@@ -30,17 +30,17 @@ export const useDiceNumber = (result, chosenNumber, isRolling) => {
     }
   }, [gameStatus]);
 
-  // Get random dice number within valid range
-  const getRandomDiceNumber = useCallback(
+  // Get random CoinFlip number within valid range
+  const getRandomCoinFlipNumber = useCallback(
     () =>
       Math.floor(
         Math.random() *
-          (constants.MAX_DICE_NUMBER - constants.MIN_DICE_NUMBER + 1)
-      ) + constants.MIN_DICE_NUMBER,
+          (constants.MAX_CoinFlip_NUMBER - constants.MIN_CoinFlip_NUMBER + 1)
+      ) + constants.MIN_CoinFlip_NUMBER,
     [constants]
   );
 
-  // Update random dice number when rolling
+  // Update random CoinFlip number when rolling
   useEffect(() => {
     let intervalId;
     let timeoutId;
@@ -48,7 +48,7 @@ export const useDiceNumber = (result, chosenNumber, isRolling) => {
     if (isRolling && !rolledNumber) {
       // Create a rolling effect by changing the number rapidly
       intervalId = setInterval(() => {
-        setRandomDiceNumber(getRandomDiceNumber());
+        setRandomCoinFlipNumber(getRandomCoinFlipNumber());
       }, 150); // Change number every 150ms for a realistic rolling effect
 
       // Automatically stop rolling after 15 seconds
@@ -68,7 +68,7 @@ export const useDiceNumber = (result, chosenNumber, isRolling) => {
         clearTimeout(timeoutId);
       }
     };
-  }, [isRolling, rolledNumber, getRandomDiceNumber]);
+  }, [isRolling, rolledNumber, getRandomCoinFlipNumber]);
 
   // Handle the result when it arrives
   useEffect(() => {
@@ -102,8 +102,8 @@ export const useDiceNumber = (result, chosenNumber, isRolling) => {
 
       // Store the last valid rolled number (1-6)
       if (
-        resultNumber >= constants.MIN_DICE_NUMBER &&
-        resultNumber <= constants.MAX_DICE_NUMBER
+        resultNumber >= constants.MIN_CoinFlip_NUMBER &&
+        resultNumber <= constants.MAX_CoinFlip_NUMBER
       ) {
         setLastRolledNumber(resultNumber);
       }
@@ -113,7 +113,7 @@ export const useDiceNumber = (result, chosenNumber, isRolling) => {
     }
   }, [result, constants]);
 
-  // Function to get the number to display on the dice
+  // Function to get the number to display on the CoinFlip
   const getDisplayNumber = () => {
     // If we have a result, show the actual rolled number
     if (rolledNumber !== null) {
@@ -122,60 +122,60 @@ export const useDiceNumber = (result, chosenNumber, isRolling) => {
         rolledNumber === constants.RESULT_RECOVERED ||
         rolledNumber === constants.RESULT_FORCE_STOPPED
       ) {
-        // For special results, use the last valid dice number or default to 1
-        return lastRolledNumber || constants.MIN_DICE_NUMBER;
+        // For special results, use the last valid CoinFlip number or default to 1
+        return lastRolledNumber || constants.MIN_CoinFlip_NUMBER;
       }
 
-      // Make sure we only return valid dice numbers (1-6)
+      // Make sure we only return valid CoinFlip numbers (1-6)
       if (
-        rolledNumber >= constants.MIN_DICE_NUMBER &&
-        rolledNumber <= constants.MAX_DICE_NUMBER
+        rolledNumber >= constants.MIN_CoinFlip_NUMBER &&
+        rolledNumber <= constants.MAX_CoinFlip_NUMBER
       ) {
         return rolledNumber;
       }
 
       // For any other invalid number, show last valid roll or chosen number
       if (
-        lastRolledNumber >= constants.MIN_DICE_NUMBER &&
-        lastRolledNumber <= constants.MAX_DICE_NUMBER
+        lastRolledNumber >= constants.MIN_CoinFlip_NUMBER &&
+        lastRolledNumber <= constants.MAX_CoinFlip_NUMBER
       ) {
         return lastRolledNumber;
       }
 
       if (
-        chosenNumber >= constants.MIN_DICE_NUMBER &&
-        chosenNumber <= constants.MAX_DICE_NUMBER
+        chosenNumber >= constants.MIN_CoinFlip_NUMBER &&
+        chosenNumber <= constants.MAX_CoinFlip_NUMBER
       ) {
         return chosenNumber;
       }
 
       // Last resort - show minimum number
-      return constants.MIN_DICE_NUMBER;
+      return constants.MIN_CoinFlip_NUMBER;
     }
 
     // If rolling but no result yet, show random number
     if (isRolling) {
-      return randomDiceNumber;
+      return randomCoinFlipNumber;
     }
 
     // If we have a previous roll, show that number if it's valid
     if (
-      lastRolledNumber >= constants.MIN_DICE_NUMBER &&
-      lastRolledNumber <= constants.MAX_DICE_NUMBER
+      lastRolledNumber >= constants.MIN_CoinFlip_NUMBER &&
+      lastRolledNumber <= constants.MAX_CoinFlip_NUMBER
     ) {
       return lastRolledNumber;
     }
 
     // If we have a chosen number, show that if it's valid
     if (
-      chosenNumber >= constants.MIN_DICE_NUMBER &&
-      chosenNumber <= constants.MAX_DICE_NUMBER
+      chosenNumber >= constants.MIN_CoinFlip_NUMBER &&
+      chosenNumber <= constants.MAX_CoinFlip_NUMBER
     ) {
       return chosenNumber;
     }
 
     // Default to minimum number
-    return constants.MIN_DICE_NUMBER;
+    return constants.MIN_CoinFlip_NUMBER;
   };
 
   return {

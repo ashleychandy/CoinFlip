@@ -13,7 +13,7 @@ export const NETWORK_CONFIG = {
     contracts: {
       // Use environment variables for contract addresses
       token: import.meta.env.VITE_TOKEN_ADDRESS || '',
-      dice: import.meta.env.VITE_DICE_ADDRESS || '',
+      CoinFlip: import.meta.env.VITE_CoinFlip_ADDRESS || '',
     },
     explorer: 'https://explorer.xinfin.network',
     dexUrl: 'https://app.weswap.io/#/swap',
@@ -26,7 +26,7 @@ export const NETWORK_CONFIG = {
     contracts: {
       // Use environment variables for contract addresses
       token: import.meta.env.VITE_APOTHEM_TOKEN_ADDRESS || '',
-      dice: import.meta.env.VITE_APOTHEM_DICE_ADDRESS || '',
+      CoinFlip: import.meta.env.VITE_APOTHEM_CoinFlip_ADDRESS || '',
     },
     explorer: 'https://explorer.apothem.network',
     dexUrl: 'https://app-apothem.weswap.io/#/swap',
@@ -49,9 +49,9 @@ export const API_CONFIG = {
 
 // App configuration
 export const APP_CONFIG = {
-  appName: 'XDC Dice Game',
+  appName: 'XDC CoinFlip Game',
   appVersion: '1.0.0',
-  contactEmail: 'support@xdcdice.com',
+  contactEmail: 'support@xdcCoinFlip.com',
   social: {
     twitter: 'https://twitter.com/',
     telegram: 'https://t.me/',

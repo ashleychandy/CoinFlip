@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { useDiceContract } from './useDiceContract';
+import { useCoinFlipContract } from './useCoinFlipContract';
 
 export const useContractConstants = () => {
-  const { contract } = useDiceContract();
+  const { contract } = useCoinFlipContract();
 
   const {
     data: constants,
@@ -41,8 +41,8 @@ export const useContractConstants = () => {
         RESULT_RECOVERED: Number(resultRecoveredValue),
         // Derived constants
         MIN_BET_AMOUNT: BigInt(1), // 1 token in wei
-        MAX_DICE_NUMBER: 6,
-        MIN_DICE_NUMBER: 1,
+        MAX_CoinFlip_NUMBER: 6,
+        MIN_CoinFlip_NUMBER: 1,
         GAME_TIMEOUT: 3600, // 1 hour in seconds
         BLOCK_THRESHOLD: 300, // Number of blocks to wait before recovery
       };
@@ -63,8 +63,8 @@ export const useContractConstants = () => {
       RESULT_FORCE_STOPPED: 254,
       RESULT_RECOVERED: 255,
       MIN_BET_AMOUNT: BigInt(1),
-      MAX_DICE_NUMBER: 6,
-      MIN_DICE_NUMBER: 1,
+      MAX_CoinFlip_NUMBER: 6,
+      MIN_CoinFlip_NUMBER: 1,
       GAME_TIMEOUT: 3600,
       BLOCK_THRESHOLD: 300,
     },

@@ -9,7 +9,7 @@ import {
 } from '../utils/contractUtils';
 import { useLoadingState } from './useLoadingState';
 import { useErrorHandler } from './useErrorHandler';
-import { useDiceContract } from './useDiceContract';
+import { useCoinFlipContract } from './useCoinFlipContract';
 import { useWallet } from '../components/wallet/WalletProvider';
 import { useContractState } from './useContractState';
 import { useContractStats } from './useContractStats';
@@ -141,7 +141,7 @@ const setupSafetyTimeout = (timeoutRef, callback, timeoutMs = 60000) => {
 };
 
 /**
- * Custom hook for dice game logic
+ * Custom hook for CoinFlip game logic
  * @param {Object} contracts - Contract instances
  * @param {String} account - User's account
  * @param {Function} onError - Error handler
@@ -155,7 +155,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
   const [isApproving, setIsApproving] = useState(false);
   const [isBetting, withBetting] = useLoadingState(false);
   const handleError = useErrorHandler(onError, addToast);
-  const { contract: _contract } = useDiceContract();
+  const { contract: _contract } = useCoinFlipContract();
   const { account: walletAccount } = useWallet();
   const [isProcessing, _setIsProcessing] = useState(false);
   const [error, _setError] = useState(null);
@@ -249,7 +249,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
   // Add effect to detect and handle contract changes
   useEffect(() => {
     // When contracts change (typically after account change), we need to reset states
-    if (contracts?.token && contracts?.dice && walletAccount) {
+    if (contracts?.token && contracts?.CoinFlip && walletAccount) {
       // Reset operation flags
       operationInProgress.current = false;
 
@@ -280,8 +280,8 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
           contracts.token
             .allowance(
               walletAccount,
-              contracts.dice?.address ||
-                contracts.dice?.target ||
+              contracts.CoinFlip?.address ||
+                contracts.CoinFlip?.target ||
                 ethers.ZeroAddress
             )
             .catch(err => {
@@ -320,10 +320,10 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
 
   // Handle approving tokens with optimistic updates
   const handleApproveToken = useCallback(async () => {
-    if (!contracts?.token || !contracts?.dice || !walletAccount) {
+    if (!contracts?.token || !contracts?.CoinFlip || !walletAccount) {
       const errorMessage = !contracts?.token
         ? 'Token contract not connected'
-        : !contracts?.dice
+        : !contracts?.CoinFlip
           ? 'Game contract not connected'
           : 'Wallet not connected';
 
@@ -371,9 +371,9 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
         // Silently handle network error
       }
 
-      // Get the dice contract address (target for v6 ethers, address for v5)
-      const diceContractAddress =
-        contracts.dice.target || contracts.dice.address;
+      // Get the CoinFlip contract address (target for v6 ethers, address for v5)
+      const CoinFlipContractAddress =
+        contracts.CoinFlip.target || contracts.CoinFlip.address;
 
       // Show initial toast
       addToast('Starting token approval process...', 'info');
@@ -382,7 +382,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
       // Use maxRetries=2 for up to 3 total attempts (initial + 2 retries)
       const success = await checkAndApproveToken(
         contracts.token,
-        diceContractAddress,
+        CoinFlipContractAddress,
         walletAccount,
         isProcessing => setProcessingState(isProcessing),
         addToast,
@@ -485,7 +485,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
 
   // Handle placing a bet with improved error handling and race condition prevention
   const handlePlaceBet = useCallback(async () => {
-    if (!contracts?.dice || !walletAccount) {
+    if (!contracts?.CoinFlip || !walletAccount) {
       addToast({
         title: 'Connection Error',
         description: 'Cannot place bet: wallet or contract connection issue',
@@ -495,8 +495,8 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     }
 
     // Ensure we're using up-to-date contract instances
-    if (walletAccount && contracts?.dice?.signer) {
-      const currentSigner = await contracts.dice.signer
+    if (walletAccount && contracts?.CoinFlip?.signer) {
+      const currentSigner = await contracts.CoinFlip.signer
         .getAddress()
         .catch(() => null);
 
@@ -592,11 +592,11 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
         try {
           // Check contract availability
           if (
-            !contracts.dice ||
-            (typeof contracts.dice.placeBet !== 'function' &&
-              typeof contracts.dice.playDice !== 'function')
+            !contracts.CoinFlip ||
+            (typeof contracts.CoinFlip.placeBet !== 'function' &&
+              typeof contracts.CoinFlip.playCoinFlip !== 'function')
           ) {
-            throw new Error('Dice contract is not properly initialized');
+            throw new Error('CoinFlip contract is not properly initialized');
           }
 
           // Balance verification with fresh data
@@ -636,11 +636,11 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
               chosenNumberBigInt < BigInt(1) ||
               chosenNumberBigInt > BigInt(6)
             ) {
-              throw new Error('Invalid dice number after conversion');
+              throw new Error('Invalid CoinFlip number after conversion');
             }
           } catch (conversionError) {
             throw new Error(
-              'Invalid dice number. Please select a number between 1 and 6.'
+              'Invalid CoinFlip number. Please select a number between 1 and 6.'
             );
           }
 
@@ -650,14 +650,16 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
           // Place bet
           let tx;
           try {
-            if (typeof contracts.dice.playDice === 'function') {
-              tx = await contracts.dice.playDice(
+            if (typeof contracts.CoinFlip.playCoinFlip === 'function') {
+              tx = await contracts.CoinFlip.playCoinFlip(
                 chosenNumberBigInt,
                 betAmount,
                 txOptions
               );
             } else {
-              throw new Error('playDice method not found in dice contract');
+              throw new Error(
+                'playCoinFlip method not found in CoinFlip contract'
+              );
             }
             pendingTxRef.current = tx;
           } catch (txError) {
