@@ -19,7 +19,7 @@ const EmptyState = ({ message, icon = '🎲', customIcon }) => (
       No Game History
     </h3>
     <p className="text-sm text-secondary-600 max-w-md">
-      {message || 'Your CoinFlip game history will appear here after you play.'}
+      {message || 'Your dice game history will appear here after you play.'}
     </p>
     <div className="mt-4 p-3 bg-secondary-50 rounded-lg text-sm text-secondary-600 max-w-xs">
       <p>Ready to play? Choose a number and place your bet to get started!</p>

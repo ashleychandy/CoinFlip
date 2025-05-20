@@ -6,14 +6,14 @@ import {
   faRandom,
   faCheckCircle,
   faTimesCircle,
-  faCoins,
+  faDice,
   faChartLine,
   faTrophy,
   faWallet,
   faPlayCircle,
 } from '@fortawesome/free-solid-svg-icons';
 import { useBetHistory } from '../../hooks/useBetHistory';
-import { useCoinFlipContract } from '../../hooks/useCoinFlipContract';
+import { useDiceContract } from '../../hooks/useDiceContract';
 import { useWallet } from '../wallet/WalletProvider';
 import EmptyState from './EmptyState';
 import GameHistoryItem from './GameHistoryItem';
@@ -128,7 +128,7 @@ const WelcomeNewUser = () => (
         transition={{ type: 'spring', delay: 0.1, duration: 1 }}
         className="w-24 h-24 bg-white/70 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-6 shadow-md border border-[#22AD74]/20"
       >
-        <FontAwesomeIcon icon={faCoins} className="text-[#22AD74] text-4xl" />
+        <FontAwesomeIcon icon={faDice} className="text-[#22AD74] text-4xl" />
       </motion.div>
 
       <h3 className="text-2xl font-bold text-[#22AD74] mb-3">Game History</h3>
@@ -190,10 +190,10 @@ const WelcomeNewUser = () => (
   </motion.div>
 );
 
-const GameHistory = ({ account, onError }) => {
+const GameHistory = ({ account, onError, hideHeading = false }) => {
   const [filter, setFilter] = useState('all');
-  const { contract: CoinFlipContract, isLoading: isContractLoading } =
-    useCoinFlipContract();
+  const { contract: diceContract, isLoading: isContractLoading } =
+    useDiceContract();
   const { isWalletConnected } = useWallet();
 
   // Get isNewUser state from polling service
@@ -216,7 +216,7 @@ const GameHistory = ({ account, onError }) => {
     playerAddress: account,
     pageSize: 12,
     autoRefresh: true,
-    CoinFlipContract,
+    diceContract,
   });
 
   // Handle any errors
@@ -319,15 +319,13 @@ const GameHistory = ({ account, onError }) => {
 
   // Check if contract is available and has the necessary methods
   const contractHasRequiredMethods = useMemo(() => {
-    if (!CoinFlipContract) return false;
+    if (!diceContract) return false;
 
-    const _hasGetGameStatus =
-      typeof CoinFlipContract.getGameStatus === 'function';
-    const hasGetBetHistory =
-      typeof CoinFlipContract.getBetHistory === 'function';
+    const _hasGetGameStatus = typeof diceContract.getGameStatus === 'function';
+    const hasGetBetHistory = typeof diceContract.getBetHistory === 'function';
 
     return hasGetBetHistory;
-  }, [CoinFlipContract]);
+  }, [diceContract]);
 
   // We no longer use sample data
   const _shouldUseSampleData = useMemo(() => {
@@ -404,10 +402,10 @@ const GameHistory = ({ account, onError }) => {
     return <GameHistoryLoader />;
   }
 
-  if (!CoinFlipContract) {
+  if (!diceContract) {
     return (
       <GameHistoryError
-        error={new Error('CoinFlip contract not initialized')}
+        error={new Error('Dice contract not initialized')}
         resetError={forceRefresh}
       />
     );
@@ -427,14 +425,14 @@ const GameHistory = ({ account, onError }) => {
         transition={{ type: 'spring', stiffness: 300, damping: 25 }}
         data-section="game-history"
       >
-        <div className="mb-4">
-          <h2 className="text-2xl font-bold text-secondary-800 mb-1">
-            Game History
-          </h2>
-          <p className="text-secondary-600">
-            Your recent CoinFlip game results
-          </p>
-        </div>
+        {!hideHeading && (
+          <div className="mb-4">
+            <h2 className="text-2xl font-bold text-secondary-800 mb-1">
+              Game History
+            </h2>
+            <p className="text-secondary-600">Your recent dice game results</p>
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-2 mb-6">
           <Tab
@@ -485,52 +483,54 @@ const GameHistory = ({ account, onError }) => {
       className="space-y-6"
       data-section="game-history"
     >
-      <div className="mb-4 flex justify-between items-center">
-        <div>
-          <motion.h2
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-2xl font-bold text-secondary-800 mb-1"
-          >
-            Game History
-          </motion.h2>
-          <motion.p
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="text-secondary-600"
-          >
-            Your recent CoinFlip game results
-          </motion.p>
-        </div>
+      {!hideHeading && (
+        <div className="mb-4 flex justify-between items-center">
+          <div>
+            <motion.h2
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-2xl font-bold text-secondary-800 mb-1"
+            >
+              Game History
+            </motion.h2>
+            <motion.p
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="text-secondary-600"
+            >
+              Your recent dice game results
+            </motion.p>
+          </div>
 
-        <motion.button
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => {
-            forceRefresh();
-          }}
-          className="px-4 py-2 bg-[#22AD74]/10 hover:bg-[#22AD74]/20 text-[#22AD74] rounded-xl font-medium flex items-center gap-2 border border-[#22AD74]/20"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
+          <motion.button
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              forceRefresh();
+            }}
+            className="px-4 py-2 bg-[#22AD74]/10 hover:bg-[#22AD74]/20 text-[#22AD74] rounded-xl font-medium flex items-center gap-2 border border-[#22AD74]/20"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-            />
-          </svg>
-          Refresh
-        </motion.button>
-      </div>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+            Refresh
+          </motion.button>
+        </div>
+      )}
 
       <motion.div
         initial={{ opacity: 0, y: -10 }}

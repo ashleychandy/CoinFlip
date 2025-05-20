@@ -107,13 +107,12 @@ export const useGameState = () => {
       [stats, constants]
     ),
 
-    isValidCoinFlipNumber: useCallback(
+    isValidDiceNumber: useCallback(
       number => {
         if (!number) return false;
         const num = Number(number);
         return (
-          num >= constants.MIN_CoinFlip_NUMBER &&
-          num <= constants.MAX_CoinFlip_NUMBER
+          num >= constants.MIN_DICE_NUMBER && num <= constants.MAX_DICE_NUMBER
         );
       },
       [constants]

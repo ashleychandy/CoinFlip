@@ -12,18 +12,13 @@ const VrfRecoveryModal = ({ isOpen, onClose }) => {
   const [showDebug, setShowDebug] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
-  const {
-    recoverGame,
-    isRecovering,
-    recoveryError,
-    GAME_TIMEOUT,
-    BLOCK_THRESHOLD,
-  } = useGameRecovery({
-    onSuccess: () => {
-      refreshData();
-      onClose();
-    },
-  });
+  const { recoverGame, isRecovering, recoveryError, GAME_TIMEOUT } =
+    useGameRecovery({
+      onSuccess: () => {
+        refreshData();
+        onClose();
+      },
+    });
 
   // Function to handle manual refresh with visual indicator
   const handleManualRefresh = async () => {
@@ -147,7 +142,7 @@ const VrfRecoveryModal = ({ isOpen, onClose }) => {
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
-          className="relative z-[110] bg-white/90 backdrop-blur-md rounded-3xl p-8 max-w-md w-full mx-4 shadow-2xl isolate max-h-[80vh] overflow-auto"
+          className="relative z-[110] bg-white/90 backdrop-blur-md rounded-3xl p-8 max-w-md w-full mx-4 shadow-2xl isolate max-h-[80vh]"
           onClick={e => e.stopPropagation()}
         >
           <div className="absolute -top-6 -right-6 w-20 h-20 bg-purple-500/20 rounded-full blur-xl" />
@@ -266,7 +261,7 @@ const VrfRecoveryModal = ({ isOpen, onClose }) => {
                 </div>
 
                 {showDebug && (
-                  <div className="mt-2 text-xs border-t pt-2 border-gray-200">
+                  <div className="mt-2 text-xs border-t pt-2 border-gray-200 max-h-[20vh] overflow-y-auto overflow-x-hidden pr-2 scrollbar-thin scrollbar-thumb-purple-500/50 scrollbar-track-transparent">
                     <h4 className="font-medium mb-1">Technical Details:</h4>
                     <div className="grid grid-cols-2 gap-1">
                       <div>Request ID:</div>

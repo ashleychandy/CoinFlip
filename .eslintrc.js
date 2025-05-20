@@ -20,13 +20,10 @@ module.exports = {
   plugins: ['react', 'react-hooks'],
   rules: {
     // Detect unused code
-    'no-unused-vars': [
-      'warn',
-      {
-        varsIgnorePattern: '^_',
-        argsIgnorePattern: '^_',
-      },
-    ],
+    'no-unused-vars': ['warn', { 
+      varsIgnorePattern: '^_', 
+      argsIgnorePattern: '^_' 
+    }],
     // Prevent duplicate imports
     'no-duplicate-imports': 'error',
     // Prevent unnecessary useEffect dependencies
@@ -50,4 +47,4 @@ module.exports = {
       },
     },
   },
-};
+}; 

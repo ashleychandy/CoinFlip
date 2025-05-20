@@ -1,5 +1,5 @@
 {
-  "name": "CoinFlip-page",
+  "name": "dice-page",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
@@ -8,13 +8,13 @@
     "preview": "vite preview",
     "lint": "eslint --ext .js,.jsx src",
     "lint:fix": "eslint --ext .js,.jsx src --fix",
-    "format": "prettier --write .",
+    "format": "prettier --write 'src/**/*.{js,jsx,css}'",
     "analyze": "vite build --mode analyze"
   },
   "keywords": [
     "blockchain",
     "dapp",
-    "CoinFlip",
+    "dice",
     "xdc",
     "ethereum"
   ],
@@ -57,5 +57,5 @@
     "vite": "^6.0.7",
     "vite-plugin-eslint": "^1.8.1"
   },
-  "description": "A decentralized CoinFlip game running on the XDC blockchain"
+  "description": "A decentralized dice game running on the XDC blockchain"
 }

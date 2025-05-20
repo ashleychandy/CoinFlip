@@ -4,9 +4,11 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useRef,
 } from 'react';
 import { useWallet } from '../components/wallet/WalletProvider';
 import { NETWORK_CONFIG } from '../config';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Define available networks - use the same structure as NETWORK_CONFIG
 export const NETWORKS = {
@@ -17,11 +19,11 @@ export const NETWORKS = {
     chainId: 50,
     explorer: 'https://explorer.xinfin.network',
     contracts: {
-      CoinFlip: import.meta.env.VITE_CoinFlip_ADDRESS,
+      dice: import.meta.env.VITE_DICE_ADDRESS,
       token: import.meta.env.VITE_TOKEN_ADDRESS,
     },
     // Maintain backward compatibility
-    CoinFlipAddress: import.meta.env.VITE_CoinFlip_ADDRESS,
+    diceAddress: import.meta.env.VITE_DICE_ADDRESS,
     tokenAddress: import.meta.env.VITE_TOKEN_ADDRESS,
     icon: '🌐',
     color: '#2e7d32',
@@ -33,11 +35,11 @@ export const NETWORKS = {
     chainId: 51,
     explorer: 'https://explorer.apothem.network',
     contracts: {
-      CoinFlip: import.meta.env.VITE_APOTHEM_CoinFlip_ADDRESS,
+      dice: import.meta.env.VITE_APOTHEM_DICE_ADDRESS,
       token: import.meta.env.VITE_APOTHEM_TOKEN_ADDRESS,
     },
     // Maintain backward compatibility
-    CoinFlipAddress: import.meta.env.VITE_APOTHEM_CoinFlip_ADDRESS,
+    diceAddress: import.meta.env.VITE_APOTHEM_DICE_ADDRESS,
     tokenAddress: import.meta.env.VITE_APOTHEM_TOKEN_ADDRESS,
     icon: '🧪',
     color: '#0277bd',
@@ -49,12 +51,14 @@ const NetworkContext = createContext(null);
 
 // Provider component
 export const NetworkProvider = ({ children }) => {
-  const { provider, chainId } = useWallet();
+  const { provider, chainId, account } = useWallet();
   const [currentNetwork, setCurrentNetwork] = useState(NETWORKS.APOTHEM);
   const [isNetworkSwitching, setIsNetworkSwitching] = useState(false);
   const [networkError, setNetworkError] = useState(null);
   const [lastChainId, setLastChainId] = useState(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const previousAccountRef = useRef(account);
+  const queryClient = useQueryClient();
 
   // A function to set the current network based on a chain ID
   const updateNetworkFromChainId = useCallback(chainId => {
@@ -67,6 +71,30 @@ export const NetworkProvider = ({ children }) => {
     }
     setLastChainId(chainId);
   }, []);
+
+  // Monitor for account changes and clear cache
+  useEffect(() => {
+    if (account !== previousAccountRef.current) {
+      // Clear any cached data related to the previous account
+      if (queryClient) {
+        // Invalidate all queries that might have cached data based on the previous account
+        queryClient.invalidateQueries();
+      }
+
+      // Update reference for next comparison
+      previousAccountRef.current = account;
+
+      // If we were in the middle of a network switch, reset
+      if (isNetworkSwitching) {
+        setIsNetworkSwitching(false);
+      }
+
+      // Clear any stored network error state
+      if (networkError) {
+        setNetworkError(null);
+      }
+    }
+  }, [account, queryClient, isNetworkSwitching, networkError]);
 
   // Set the initial network based on the wallet's chainId
   useEffect(() => {

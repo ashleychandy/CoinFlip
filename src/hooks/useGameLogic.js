@@ -9,7 +9,7 @@ import {
 } from '../utils/contractUtils';
 import { useLoadingState } from './useLoadingState';
 import { useErrorHandler } from './useErrorHandler';
-import { useCoinFlipContract } from './useCoinFlipContract';
+import { useDiceContract } from './useDiceContract';
 import { useWallet } from '../components/wallet/WalletProvider';
 import { useContractState } from './useContractState';
 import { useContractStats } from './useContractStats';
@@ -60,12 +60,20 @@ const useBetState = (initialBetAmount = '1000000000000000000') => {
     }
   }, [betAmount]);
 
+  // Reset function to clear bet state
+  const resetBetState = useCallback(() => {
+    setBetAmountRaw(initialBetAmount);
+    setChosenNumber(null);
+    lastBetAmountRef.current = initialBetAmount;
+  }, [initialBetAmount]);
+
   return {
     betAmount: betAmountBigInt,
     betAmountString: betAmount,
     setBetAmount,
     chosenNumber,
     setChosenNumber,
+    resetBetState,
   };
 };
 
@@ -89,11 +97,21 @@ const useGameState = () => {
     setGameState(prev => ({ ...prev, lastResult: result }));
   }, []);
 
+  // Reset function to clear game state
+  const resetGameState = useCallback(() => {
+    setGameState({
+      isProcessing: false,
+      isRolling: false,
+      lastResult: null,
+    });
+  }, []);
+
   return {
     gameState,
     setProcessingState,
     setRollingState,
     setLastResult,
+    resetGameState,
   };
 };
 
@@ -123,7 +141,7 @@ const setupSafetyTimeout = (timeoutRef, callback, timeoutMs = 60000) => {
 };
 
 /**
- * Custom hook for CoinFlip game logic
+ * Custom hook for dice game logic
  * @param {Object} contracts - Contract instances
  * @param {String} account - User's account
  * @param {Function} onError - Error handler
@@ -137,11 +155,12 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
   const [isApproving, setIsApproving] = useState(false);
   const [isBetting, withBetting] = useLoadingState(false);
   const handleError = useErrorHandler(onError, addToast);
-  const { contract: _contract } = useCoinFlipContract();
+  const { contract: _contract } = useDiceContract();
   const { account: walletAccount } = useWallet();
   const [isProcessing, _setIsProcessing] = useState(false);
   const [error, _setError] = useState(null);
   const pendingTxRef = useRef(null);
+  const previousAccountRef = useRef(walletAccount);
 
   // Add new hooks
   const { contractState: _contractState } = useContractState();
@@ -164,35 +183,12 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
 
   // Always invalidate balance data when component mounts or account/contracts change
   useEffect(() => {
-    // Add placeBet method to contract if it has playCoinFlip but not placeBet
-    if (
-      contracts?.CoinFlip &&
-      typeof contracts.CoinFlip.playCoinFlip === 'function' &&
-      typeof contracts.CoinFlip.placeBet !== 'function'
-    ) {
-      // Use bind to ensure 'this' context is preserved
-      contracts.CoinFlip.placeBet = contracts.CoinFlip.playCoinFlip.bind(
-        contracts.CoinFlip
-      );
-    }
-
     // Invalidate balance data when account or contracts change
     if (walletAccount && contracts?.token) {
       invalidateQueries(['balance']);
     }
 
-    // Register global function to refresh balance data
-    window.refreshBalanceData = accountAddress => {
-      // If no account is provided, use the current one
-      const targetAccount = accountAddress || walletAccount;
-      if (targetAccount) {
-        queryClient.invalidateQueries(['balance', targetAccount]);
-      }
-    };
-
     return () => {
-      delete window.refreshBalanceData;
-
       // Clean up safety timeout when component unmounts
       if (safetyTimeoutRef.current) {
         clearTimeout(safetyTimeoutRef.current);
@@ -208,10 +204,62 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     setBetAmount,
     chosenNumber,
     setChosenNumber,
+    resetBetState,
   } = useBetState();
 
-  const { gameState, setProcessingState, setRollingState, setLastResult } =
-    useGameState();
+  const {
+    gameState,
+    setProcessingState,
+    setRollingState,
+    setLastResult,
+    resetGameState,
+  } = useGameState();
+
+  // Add effect to reset state when account changes
+  useEffect(() => {
+    // Check if account has changed
+    if (walletAccount !== previousAccountRef.current) {
+      // Reset all game state
+      resetGameState();
+      resetBetState();
+
+      // Reset operation flags
+      operationInProgress.current = false;
+      if (safetyTimeoutRef.current) {
+        clearTimeout(safetyTimeoutRef.current);
+        safetyTimeoutRef.current = null;
+      }
+
+      // Reset approval state
+      setIsApproving(false);
+
+      // Cancel any pending transactions
+      pendingTxRef.current = null;
+
+      // Update the ref to current account
+      previousAccountRef.current = walletAccount;
+
+      // Invalidate all relevant queries with a slight delay to ensure provider is updated
+      setTimeout(() => {
+        invalidateQueries(['balance', 'gameStatus', 'betHistory']);
+      }, 500);
+    }
+  }, [walletAccount, resetGameState, resetBetState, invalidateQueries]);
+
+  // Add effect to detect and handle contract changes
+  useEffect(() => {
+    // When contracts change (typically after account change), we need to reset states
+    if (contracts?.token && contracts?.dice && walletAccount) {
+      // Reset operation flags
+      operationInProgress.current = false;
+
+      // Reset states to ensure we're working with fresh data
+      resetGameState();
+
+      // Invalidate all queries to get fresh data
+      invalidateQueries(['balance', 'gameStatus', 'betHistory']);
+    }
+  }, [contracts, walletAccount, resetGameState, invalidateQueries]);
 
   // Balance Query with optimized settings
   const { data: balanceData, isLoading: balanceLoading } = useQuery({
@@ -232,8 +280,8 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
           contracts.token
             .allowance(
               walletAccount,
-              contracts.CoinFlip?.address ||
-                contracts.CoinFlip?.target ||
+              contracts.dice?.address ||
+                contracts.dice?.target ||
                 ethers.ZeroAddress
             )
             .catch(err => {
@@ -272,10 +320,10 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
 
   // Handle approving tokens with optimistic updates
   const handleApproveToken = useCallback(async () => {
-    if (!contracts?.token || !contracts?.CoinFlip || !walletAccount) {
+    if (!contracts?.token || !contracts?.dice || !walletAccount) {
       const errorMessage = !contracts?.token
         ? 'Token contract not connected'
-        : !contracts?.CoinFlip
+        : !contracts?.dice
           ? 'Game contract not connected'
           : 'Wallet not connected';
 
@@ -323,9 +371,9 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
         // Silently handle network error
       }
 
-      // Get the CoinFlip contract address (target for v6 ethers, address for v5)
-      const CoinFlipContractAddress =
-        contracts.CoinFlip.target || contracts.CoinFlip.address;
+      // Get the dice contract address (target for v6 ethers, address for v5)
+      const diceContractAddress =
+        contracts.dice.target || contracts.dice.address;
 
       // Show initial toast
       addToast('Starting token approval process...', 'info');
@@ -334,7 +382,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
       // Use maxRetries=2 for up to 3 total attempts (initial + 2 retries)
       const success = await checkAndApproveToken(
         contracts.token,
-        CoinFlipContractAddress,
+        diceContractAddress,
         walletAccount,
         isProcessing => setProcessingState(isProcessing),
         addToast,
@@ -383,8 +431,6 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
             'error'
           );
         }
-
-        // Debug information removed
       }
     } catch (error) {
       // Check for network-related errors
@@ -439,13 +485,45 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
 
   // Handle placing a bet with improved error handling and race condition prevention
   const handlePlaceBet = useCallback(async () => {
-    if (!contracts?.CoinFlip || !walletAccount) {
+    if (!contracts?.dice || !walletAccount) {
       addToast({
         title: 'Connection Error',
         description: 'Cannot place bet: wallet or contract connection issue',
         type: 'error',
       });
       return;
+    }
+
+    // Ensure we're using up-to-date contract instances
+    if (walletAccount && contracts?.dice?.signer) {
+      const currentSigner = await contracts.dice.signer
+        .getAddress()
+        .catch(() => null);
+
+      // If signer doesn't match current wallet account, we need to reinitialize
+      if (
+        currentSigner &&
+        currentSigner.toLowerCase() !== walletAccount.toLowerCase()
+      ) {
+        addToast({
+          title: 'Updating Connection',
+          description: 'Detected account mismatch, updating connection...',
+          type: 'info',
+        });
+
+        // Force wallet state to update - this will cause a reinitialization
+        window.dispatchEvent(new CustomEvent('xdc_wallet_reset'));
+
+        // Wait a moment for state to update before proceeding
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Refresh page data
+        invalidateQueries(['balance']);
+
+        // Retry placing bet after a short delay
+        setTimeout(() => handlePlaceBet(), 2000);
+        return;
+      }
     }
 
     // Validate that a number is chosen
@@ -514,11 +592,11 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
         try {
           // Check contract availability
           if (
-            !contracts.CoinFlip ||
-            (typeof contracts.CoinFlip.placeBet !== 'function' &&
-              typeof contracts.CoinFlip.playCoinFlip !== 'function')
+            !contracts.dice ||
+            (typeof contracts.dice.placeBet !== 'function' &&
+              typeof contracts.dice.playDice !== 'function')
           ) {
-            throw new Error('CoinFlip contract is not properly initialized');
+            throw new Error('Dice contract is not properly initialized');
           }
 
           // Balance verification with fresh data
@@ -558,38 +636,28 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
               chosenNumberBigInt < BigInt(1) ||
               chosenNumberBigInt > BigInt(6)
             ) {
-              throw new Error('Invalid CoinFlip number after conversion');
+              throw new Error('Invalid dice number after conversion');
             }
           } catch (conversionError) {
             throw new Error(
-              'Invalid CoinFlip number. Please select a number between 1 and 6.'
+              'Invalid dice number. Please select a number between 1 and 6.'
             );
           }
 
           // Add transaction options
-          const txOptions = {
-            gasLimit: ethers.parseUnits('500000', 'wei'),
-          };
+          const txOptions = {};
 
           // Place bet
           let tx;
           try {
-            if (typeof contracts.CoinFlip.placeBet === 'function') {
-              tx = await contracts.CoinFlip.placeBet(
-                chosenNumberBigInt,
-                betAmount,
-                txOptions
-              );
-            } else if (typeof contracts.CoinFlip.playCoinFlip === 'function') {
-              tx = await contracts.CoinFlip.playCoinFlip(
+            if (typeof contracts.dice.playDice === 'function') {
+              tx = await contracts.dice.playDice(
                 chosenNumberBigInt,
                 betAmount,
                 txOptions
               );
             } else {
-              throw new Error(
-                'No valid CoinFlip method found (placeBet or playCoinFlip)'
-              );
+              throw new Error('playDice method not found in dice contract');
             }
             pendingTxRef.current = tx;
           } catch (txError) {
@@ -726,34 +794,11 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
 
   // When bet is placed, immediately update UI with the result
   useEffect(() => {
-    if (gameState.lastResult && window.addNewGameResult) {
-      try {
-        // Add this game to history for instant display
-        window.addNewGameResult({
-          timestamp: Math.floor(Date.now() / 1000).toString(),
-          chosenNumber: chosenNumber?.toString() || '0',
-          rolledNumber: gameState.lastResult.rolledNumber?.toString() || '0',
-          amount: betAmount.toString(),
-          payout: gameState.lastResult.payout?.toString() || '0',
-          isWin: gameState.lastResult.isWin,
-          isRecovered: false,
-          isForceStopped: false,
-          isSpecialResult: false,
-        });
-
-        // After result is known, immediately refresh all data
-        invalidateQueries(['balance', 'gameHistory', 'gameStats']);
-      } catch (error) {
-        // Handle error silently
-      }
+    if (gameState.lastResult) {
+      // After result is known, immediately refresh all data
+      invalidateQueries(['balance', 'gameHistory', 'gameStats']);
     }
-  }, [
-    gameState.lastResult,
-    chosenNumber,
-    betAmount,
-    queryClient,
-    walletAccount,
-  ]);
+  }, [gameState.lastResult, invalidateQueries]);
 
   // Add a function to check for VRF results in history
   const checkVrfResultInHistory = async txHash => {

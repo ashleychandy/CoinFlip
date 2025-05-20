@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useWallet } from '../components/wallet/WalletProvider';
-import { useCoinFlipContract } from './useCoinFlipContract';
+import { useDiceContract } from './useDiceContract';
 import { useNotification } from '../contexts/NotificationContext';
 import { usePollingService } from '../services/pollingService.jsx';
 
@@ -10,12 +10,12 @@ const GAME_TIMEOUT = 3600; // 1 hour in seconds
 const BLOCK_THRESHOLD = 300;
 
 /**
- * Hook for managing game recovery and force stop functionality
- * Aligns with contract's recoverOwnStuckGame and forceStopGame functions
+ * Hook for managing game recovery functionality
+ * Aligns with contract's recoverOwnStuckGame function
  */
 export const useGameRecovery = ({ onSuccess, onError } = {}) => {
   const { account } = useWallet();
-  const { contract: CoinFlipContract } = useCoinFlipContract();
+  const { contract: diceContract } = useDiceContract();
   const { refreshData, gameStatus } = usePollingService();
   const { addToast } = useNotification();
 
@@ -26,11 +26,11 @@ export const useGameRecovery = ({ onSuccess, onError } = {}) => {
     error: recoveryError,
   } = useMutation({
     mutationFn: async () => {
-      if (!account || !CoinFlipContract) {
+      if (!account || !diceContract) {
         throw new Error('Wallet not connected or contract not initialized');
       }
 
-      const tx = await CoinFlipContract.recoverOwnStuckGame();
+      const tx = await diceContract.recoverOwnStuckGame();
       const receipt = await tx.wait();
       return receipt;
     },
@@ -62,63 +62,16 @@ export const useGameRecovery = ({ onSuccess, onError } = {}) => {
     },
   });
 
-  // Mutation for force stop (admin only)
-  const {
-    mutate: forceStopGame,
-    isLoading: isForceStoping,
-    error: forceStopError,
-  } = useMutation({
-    mutationFn: async playerAddress => {
-      if (!CoinFlipContract) {
-        throw new Error('Contract not initialized');
-      }
-
-      if (!playerAddress) {
-        throw new Error('Player address required');
-      }
-
-      const tx = await CoinFlipContract.forceStopGame(playerAddress);
-      const receipt = await tx.wait();
-      return receipt;
-    },
-    onSuccess: (data, variables) => {
-      addToast({
-        title: 'Force Stop Successful',
-        description: `Game force stopped for player ${variables}`,
-        type: 'success',
-      });
-
-      // Refresh data from polling service
-      refreshData();
-
-      if (onSuccess) {
-        onSuccess(data);
-      }
-    },
-    onError: error => {
-      addToast({
-        title: 'Force Stop Failed',
-        description:
-          error.message || 'Failed to force stop game. Please try again.',
-        type: 'error',
-      });
-
-      if (onError) {
-        onError(error);
-      }
-    },
-  });
-
   // Check if game is eligible for recovery
   const checkRecoveryEligibility = useCallback(
     async playerAddress => {
       // If we need a specific address other than the current account,
       // we still need to make a direct contract call
       if (playerAddress && playerAddress !== account) {
-        if (!CoinFlipContract) return null;
+        if (!diceContract) return null;
 
         try {
-          const status = await CoinFlipContract.getGameStatus(playerAddress);
+          const status = await diceContract.getGameStatus(playerAddress);
           return processGameStatusForRecovery(status);
         } catch (error) {
           return null;
@@ -132,7 +85,7 @@ export const useGameRecovery = ({ onSuccess, onError } = {}) => {
 
       return null;
     },
-    [CoinFlipContract, account, gameStatus]
+    [diceContract, account, gameStatus]
   );
 
   // Helper function to process game status for recovery
@@ -170,16 +123,13 @@ export const useGameRecovery = ({ onSuccess, onError } = {}) => {
   return {
     // Recovery actions
     recoverGame,
-    forceStopGame,
     checkRecoveryEligibility,
 
     // Loading states
     isRecovering,
-    isForceStoping,
 
     // Errors
     recoveryError,
-    forceStopError,
 
     // Constants
     GAME_TIMEOUT,

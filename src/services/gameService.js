@@ -1,6 +1,6 @@
 class GameService {
   constructor() {
-    this.CoinFlipContract = null;
+    this.diceContract = null;
   }
 
   // Initialize game service with contracts
@@ -10,41 +10,29 @@ class GameService {
     }
 
     // Handle different contract formats
-    if (contracts.CoinFlip) {
-      this.CoinFlipContract = contracts.CoinFlip;
-    } else if (contracts.CoinFlipContract) {
-      this.CoinFlipContract = contracts.CoinFlipContract;
+    if (contracts.dice) {
+      this.diceContract = contracts.dice;
+    } else if (contracts.diceContract) {
+      this.diceContract = contracts.diceContract;
     } else {
-      throw new Error('CoinFlip contract not provided');
+      throw new Error('Dice contract not provided');
     }
 
     // Validate that the contract has the necessary methods
     if (
-      !this.CoinFlipContract.playCoinFlip ||
-      typeof this.CoinFlipContract.playCoinFlip !== 'function'
+      !this.diceContract.playDice ||
+      typeof this.diceContract.playDice !== 'function'
     ) {
-      throw new Error('Invalid CoinFlip contract: missing playCoinFlip method');
-    }
-
-    // Add placeBet method to the CoinFlip contract for compatibility with the frontend
-    // This adapts the playCoinFlip method of the contract to the placeBet method expected by the frontend
-    if (!this.CoinFlipContract.placeBet) {
-      this.CoinFlipContract.placeBet = function (
-        chosenNumber,
-        amount,
-        options
-      ) {
-        return this.playCoinFlip(chosenNumber, amount, options);
-      };
+      throw new Error('Invalid dice contract: missing playDice method');
     }
 
     return this;
   }
 
-  // Place a bet on the CoinFlip game
-  async placeBet(chosenNumber, amount) {
-    if (!this.CoinFlipContract) {
-      throw new Error('CoinFlip contract not initialized');
+  // Play dice game
+  async playDice(chosenNumber, amount) {
+    if (!this.diceContract) {
+      throw new Error('Dice contract not initialized');
     }
 
     if (!chosenNumber || chosenNumber < 1 || chosenNumber > 6) {
@@ -58,7 +46,7 @@ class GameService {
     }
 
     try {
-      const tx = await this.CoinFlipContract.playCoinFlip(chosenNumber, amount);
+      const tx = await this.diceContract.playDice(chosenNumber, amount);
       const receipt = await tx.wait();
 
       return {
@@ -69,11 +57,6 @@ class GameService {
       throw this.parseContractError(error);
     }
   }
-
-  // Recovery and status logic is now handled by hooks (useGameStatus, useGameRecovery)
-  // async recoverStuckGame() {
-  //   ...
-  // }
 
   // Parse contract errors
   parseContractError(error) {
@@ -128,21 +111,6 @@ class GameService {
   calculatePotentialPayout(amount) {
     if (!amount) return BigInt(0);
     return amount * BigInt(2);
-  }
-
-  // Force stop game (admin only)
-  async forceStopGame(playerAddress) {
-    if (!this.CoinFlipContract) {
-      throw new Error('CoinFlip contract not initialized');
-    }
-
-    try {
-      const tx = await this.CoinFlipContract.forceStopGame(playerAddress);
-      const receipt = await tx.wait();
-      return receipt;
-    } catch (error) {
-      throw this.parseContractError(error);
-    }
   }
 }
 

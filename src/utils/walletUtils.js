@@ -4,7 +4,7 @@ import {
   SUPPORTED_CHAIN_IDS,
   DEFAULT_NETWORK,
 } from '../config';
-import CoinFlipABI from '../contracts/abi/CoinFlip.json';
+import DiceABI from '../contracts/abi/Dice.json';
 import TokenABI from '../contracts/abi/GamaToken.json';
 
 /**
@@ -106,9 +106,9 @@ export const initializeContracts = async (
       );
     }
 
-    if (!networkConfig.contracts.CoinFlip) {
+    if (!networkConfig.contracts.dice) {
       throw new Error(
-        `CoinFlip contract address not configured for ${networkConfig.name}`
+        `Dice contract address not configured for ${networkConfig.name}`
       );
     }
 
@@ -123,17 +123,17 @@ export const initializeContracts = async (
         signer
       );
 
-      // Create CoinFlip contract instance
-      const CoinFlipContract = new ethers.Contract(
-        networkConfig.contracts.CoinFlip,
-        CoinFlipABI.abi,
+      // Create dice contract instance
+      const diceContract = new ethers.Contract(
+        networkConfig.contracts.dice,
+        DiceABI.abi,
         signer
       );
 
       if (setContracts) {
         setContracts({
           token: tokenContract,
-          CoinFlip: CoinFlipContract,
+          dice: diceContract,
         });
       }
 
@@ -141,7 +141,7 @@ export const initializeContracts = async (
         setLoadingStates(prev => ({ ...prev, contracts: false }));
       }
 
-      return { token: tokenContract, CoinFlip: CoinFlipContract };
+      return { token: tokenContract, dice: diceContract };
     } catch (contractError) {
       throw new Error(
         `Failed to create contract instances: ${contractError.message}`
@@ -152,7 +152,7 @@ export const initializeContracts = async (
       handleError(error, 'initializeContracts');
     }
     if (setContracts) {
-      setContracts({ token: null, CoinFlip: null });
+      setContracts({ token: null, dice: null });
     }
     if (setLoadingStates) {
       setLoadingStates(prev => ({ ...prev, contracts: false }));
@@ -186,7 +186,7 @@ export const switchNetwork = async (
     }
     // Clear contracts during network switch
     if (setContracts) {
-      setContracts({ token: null, CoinFlip: null });
+      setContracts({ token: null, dice: null });
     }
 
     // Check if already on the correct network
@@ -347,7 +347,7 @@ export const switchNetwork = async (
 
     // Reset contracts and provider on error
     if (setContracts) {
-      setContracts({ token: null, CoinFlip: null });
+      setContracts({ token: null, dice: null });
     }
     if (setProvider) {
       setProvider(null);
@@ -405,8 +405,7 @@ export const handleRpcError = async (error, provider, addToast = null) => {
     errorMessage.includes('timeout') ||
     errorMessage.includes('connection error') ||
     errorMessage.includes('too many requests') ||
-    errorMessage.includes('rate limit') ||
-    errorMessage.includes('CORS');
+    errorMessage.includes('rate limit');
 
   if (!isRpcIssue) return false;
 
@@ -426,6 +425,94 @@ export const handleRpcError = async (error, provider, addToast = null) => {
     // Return true to indicate a recovery was attempted
     return true;
   } catch (recoveryError) {
+    return false;
+  }
+};
+
+// Function to help reinitialize contract instances on account change
+export const reinitializeContractsForAccount = async (
+  provider,
+  newAccount,
+  contracts
+) => {
+  if (!provider || !newAccount) {
+    return null;
+  }
+
+  try {
+    // We need the signer for the new account
+    const newSigner = await provider.getSigner(newAccount);
+
+    // Create new contract instances using the new signer
+    const newContracts = {};
+
+    // For each existing contract, create a new instance with the new signer
+    if (contracts) {
+      for (const contractKey in contracts) {
+        if (contracts[contractKey]) {
+          // Create a new instance with the same address but new signer
+          const contractAddress = await contracts[contractKey].getAddress();
+          const contractInterface = contracts[contractKey].interface;
+
+          // Create new contract instance with the new signer
+          newContracts[contractKey] = new ethers.Contract(
+            contractAddress,
+            contractInterface,
+            newSigner
+          );
+        }
+      }
+    }
+
+    return Object.keys(newContracts).length > 0 ? newContracts : null;
+  } catch (error) {
+    console.error('Error reinitializing contracts for new account:', error);
+    return null;
+  }
+};
+
+/**
+ * Force a complete reset of the wallet state to resolve stale state issues
+ * This can be called when issues occur with transactions after account changes
+ */
+export const forceWalletReset = async () => {
+  try {
+    // Clear any localStorage cache related to wallet
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.includes('wallet') || key.includes('xdc'))) {
+        keysToRemove.push(key);
+      }
+    }
+
+    // Remove the identified keys
+    keysToRemove.forEach(key => {
+      try {
+        localStorage.removeItem(key);
+      } catch (e) {
+        // Ignore errors
+      }
+    });
+
+    // Dispatch event to notify components
+    window.dispatchEvent(new CustomEvent('xdc_wallet_reset'));
+
+    // Clear provider state if exists
+    if (window.ethereum) {
+      try {
+        // Request new accounts to force a refresh
+        await window.ethereum.request({
+          method: 'eth_requestAccounts',
+        });
+      } catch (e) {
+        // Ignore errors
+      }
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error during wallet reset:', error);
     return false;
   }
 };

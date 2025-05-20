@@ -129,17 +129,6 @@ export const handleContractError = (error, onError, addToast) => {
   }
 };
 
-/**
- * Safely call a contract method with proper error handling
- * @param {Object} contract - The contract instance
- * @param {String} methodName - The name of the method to call
- * @param {Array} params - Parameters to pass to the method
- * @param {Any} defaultValue - Default value to return if call fails
- * @param {Function} onError - Optional error handler function
- * @param {Function} addToast - Optional toast notification function
- * @param {Object} options - Optional transaction options (for writing methods)
- * @returns {Promise<Any>} - Result of the contract call or defaultValue if failed
- */
 export const safeContractCall = async (
   contract,
   methodName,
@@ -275,8 +264,7 @@ export const checkAndApproveToken = async (
               estimatedGas = ethers.parseUnits('100000', 'wei'); // fallback gas estimate
             }
 
-            const requiredGas =
-              (gasPrice * estimatedGas * BigInt(12)) / BigInt(10); // 1.2x for safety margin
+            const requiredGas = gasPrice * estimatedGas; // Use exact estimated gas without buffer
 
             if (balance < requiredGas) {
               if (addToast)
@@ -334,9 +322,7 @@ export const checkAndApproveToken = async (
         const maxApproval = ethers.MaxUint256;
 
         // Request approval with max amount
-        const tx = await tokenContract.approve(spenderAddress, maxApproval, {
-          gasLimit: ethers.parseUnits('300000', 'wei'), // Set a reasonable gas limit
-        });
+        const tx = await tokenContract.approve(spenderAddress, maxApproval);
 
         if (addToast) addToast('Token approval transaction sent', 'info');
 
@@ -609,9 +595,9 @@ export const parseGameResultEvent = (receipt, contractInterface = null) => {
             const possibleRolledNumberHex = '0x' + data.substring(0, 64);
             const possibleRolledNumber = parseInt(possibleRolledNumberHex, 16);
 
-            // Only consider valid CoinFlip numbers
+            // Only consider valid dice numbers
             if (possibleRolledNumber >= 1 && possibleRolledNumber <= 6) {
-              // If we found a valid CoinFlip number, make a best guess about the game result
+              // If we found a valid dice number, make a best guess about the game result
               return {
                 rolledNumber: possibleRolledNumber,
                 payout: BigInt(0),
@@ -635,105 +621,5 @@ export const parseGameResultEvent = (receipt, contractInterface = null) => {
     return null;
   } catch (error) {
     return null;
-  }
-};
-
-/**
- * Utility function to debug token allowance issues
- * @param {Object} tokenContract - The token contract instance
- * @param {String} spenderAddress - The spender address
- * @param {String} userAddress - The user's address
- * @returns {Promise<Object>} - Debug information
- */
-export const debugTokenApproval = async (
-  tokenContract,
-  spenderAddress,
-  userAddress
-) => {
-  if (!tokenContract || !spenderAddress || !userAddress) {
-    return { error: 'Missing required parameters' };
-  }
-
-  try {
-    // Get token details
-    let tokenName = 'Unknown';
-    let tokenSymbol = 'Unknown';
-    let tokenDecimals = 18;
-
-    try {
-      if (tokenContract.name && typeof tokenContract.name === 'function') {
-        tokenName = await tokenContract.name();
-      }
-      if (tokenContract.symbol && typeof tokenContract.symbol === 'function') {
-        tokenSymbol = await tokenContract.symbol();
-      }
-      if (
-        tokenContract.decimals &&
-        typeof tokenContract.decimals === 'function'
-      ) {
-        tokenDecimals = await tokenContract.decimals();
-      }
-    } catch (detailsError) {
-      // Error getting token details
-    }
-
-    // Check allowance
-    let allowance;
-    let errorMessage = null;
-    try {
-      if (
-        !tokenContract.allowance ||
-        typeof tokenContract.allowance !== 'function'
-      ) {
-        return { error: 'Token contract does not support allowance checks' };
-      }
-      allowance = await tokenContract.allowance(userAddress, spenderAddress);
-    } catch (allowanceError) {
-      errorMessage =
-        allowanceError.message || 'Unknown error checking allowance';
-      allowance = BigInt(0);
-    }
-
-    // Check token balance
-    let balance;
-    try {
-      if (
-        !tokenContract.balanceOf ||
-        typeof tokenContract.balanceOf !== 'function'
-      ) {
-        return { error: 'Token contract does not support balance checks' };
-      }
-      balance = await tokenContract.balanceOf(userAddress);
-    } catch (balanceError) {
-      balance = BigInt(0);
-    }
-
-    // Format values for display
-    const humanReadableAllowance = ethers.formatUnits(
-      allowance.toString(),
-      tokenDecimals
-    );
-    const humanReadableBalance = ethers.formatUnits(
-      balance.toString(),
-      tokenDecimals
-    );
-
-    return {
-      token: {
-        name: tokenName,
-        symbol: tokenSymbol,
-        decimals: tokenDecimals,
-      },
-      user: userAddress,
-      spender: spenderAddress,
-      allowance: allowance.toString(),
-      humanReadableAllowance,
-      balance: balance.toString(),
-      humanReadableBalance,
-      needsApproval: balance > BigInt(0) && allowance <= BigInt(0),
-      error: errorMessage,
-    };
-  } catch (error) {
-    return { error: error.message || 'Unknown error in debugTokenApproval' };
   }
 };
