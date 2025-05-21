@@ -1,13 +1,28 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 
-const CoinFlipNumber = ({ number, selected, onClick, disabled }) => {
-  // All CoinFlip numbers will use green colors
-  const greenColor = {
-    bg: 'from-green-500 to-green-700',
-    border: 'border-green-300',
-    shadow: 'shadow-green-500/30',
+const CoinOption = ({ coinType, selected, onClick, disabled }) => {
+  // Colors for different coin types
+  const coinColors = {
+    green: {
+      bg: 'from-green-500 to-green-700',
+      border: 'border-green-300',
+      shadow: 'shadow-green-500/30',
+      hoverBorder: 'hover:border-green-400',
+      bgLight: 'bg-green-50',
+      text: 'text-green-700',
+    },
+    white: {
+      bg: 'from-gray-400 to-gray-600',
+      border: 'border-gray-300',
+      shadow: 'shadow-gray-400/30',
+      hoverBorder: 'hover:border-gray-400',
+      bgLight: 'bg-gray-50',
+      text: 'text-gray-700',
+    },
   };
+
+  const colors = coinType === 'green' ? coinColors.green : coinColors.white;
 
   return (
     <motion.button
@@ -17,23 +32,25 @@ const CoinFlipNumber = ({ number, selected, onClick, disabled }) => {
       whileTap={!disabled && { scale: 0.95 }}
       animate={selected ? { y: -4 } : { y: 0 }}
       transition={{ type: 'spring', stiffness: 400, damping: 17 }}
-      onClick={() => onClick(number)}
+      onClick={() => onClick(coinType)}
       className={`
         relative w-full aspect-square rounded-xl
         flex items-center justify-center
-        font-bold text-2xl
+        font-bold text-lg
         transition-all duration-300
         border-2
         ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}
         ${
           selected
-            ? `bg-gradient-to-br ${greenColor.bg} text-white border-white shadow-lg ${greenColor.shadow}`
-            : 'bg-green-50 text-green-700 border-green-200 hover:border-green-400'
+            ? `bg-gradient-to-br ${colors.bg} text-white border-white shadow-lg ${colors.shadow}`
+            : `${colors.bgLight} ${colors.text} border-gray-200 ${colors.hoverBorder}`
         }
       `}
     >
-      {/* CoinFlip face */}
-      <span className="relative z-10">{number}</span>
+      {/* Coin display */}
+      <span className="relative z-10">
+        {coinType === 'green' ? 'Green Coin' : 'White Coin'}
+      </span>
 
       {/* Glow effect when selected */}
       {selected && (
@@ -43,34 +60,32 @@ const CoinFlipNumber = ({ number, selected, onClick, disabled }) => {
           transition={{ duration: 2, repeat: Infinity }}
         />
       )}
-
-      {/* Removed CoinFlip dot patterns */}
     </motion.button>
   );
 };
 
 const NumberSelector = ({ value, onChange, disabled = false }) => {
-  const numbers = [1, 2, 3, 4, 5, 6];
+  const coinOptions = ['green', 'white'];
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <label className="block text-secondary-700 text-sm font-medium">
-          Choose Your Lucky Number:
+          Choose Your Coin:
         </label>
         {value && (
           <div className="text-sm font-medium px-3 py-1 rounded-full bg-green-500/20 text-green-600 border border-green-500/30">
-            Selected: {value}
+            Selected: {value === 'green' ? 'Green Coin' : 'White Coin'}
           </div>
         )}
       </div>
 
-      <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
-        {numbers.map(number => (
-          <CoinFlipNumber
-            key={number}
-            number={number}
-            selected={value === number}
+      <div className="grid grid-cols-2 gap-3">
+        {coinOptions.map(coinType => (
+          <CoinOption
+            key={coinType}
+            coinType={coinType}
+            selected={value === coinType}
             onClick={onChange}
             disabled={disabled}
           />
@@ -83,8 +98,8 @@ const NumberSelector = ({ value, onChange, disabled = false }) => {
         transition={{ delay: 0.3 }}
         className="text-center text-xs text-secondary-600"
       >
-        Select one number from 1 to 6. If the CoinFlip rolls your number, you
-        win!
+        Select either Green or White coin. If the coin flip matches your
+        selection, you win!
       </motion.div>
     </div>
   );

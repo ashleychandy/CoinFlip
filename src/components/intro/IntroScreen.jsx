@@ -2,11 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faCoinFlip,
+  faCoins,
   faCubes,
   faChartLine,
   faArrowRight,
-  faCoins,
   faShield,
   faServer,
   faLock,
@@ -345,7 +344,7 @@ const IntroScreen = ({ onComplete }) => {
                     className="text-4xl font-bold text-[#22AD74] mb-8 text-center"
                     variants={itemVariants}
                   >
-                    <FontAwesomeIcon icon={faCoinFlip} className="mr-3" />
+                    <FontAwesomeIcon icon={faCoins} className="mr-3" />
                     How It Works
                   </motion.h2>
 

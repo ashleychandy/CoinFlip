@@ -526,21 +526,26 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
       }
     }
 
-    // Validate that a number is chosen
+    // Validate that a coin is chosen
     if (chosenNumber === null || chosenNumber === undefined) {
       addToast({
         title: 'Invalid Input',
-        description: 'Please select a number first',
+        description: 'Please select a coin first',
         type: 'warning',
       });
       return;
     }
 
-    // Ensure chosenNumber is between 1-6
-    if (chosenNumber < 1 || chosenNumber > 6) {
+    // Convert coin type to number value that contract expects
+    let coinValue;
+    if (chosenNumber === 'green') {
+      coinValue = 1; // Green maps to HEADS (1)
+    } else if (chosenNumber === 'white') {
+      coinValue = 2; // White maps to TAILS (2)
+    } else {
       addToast({
         title: 'Invalid Input',
-        description: 'Please select a valid number between 1 and 6',
+        description: 'Please select either Green or White coin',
         type: 'warning',
       });
       return;
@@ -628,21 +633,8 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
             type: 'info',
           });
 
-          // Convert chosen number to proper format
-          let chosenNumberBigInt;
-          try {
-            chosenNumberBigInt = BigInt(chosenNumber);
-            if (
-              chosenNumberBigInt < BigInt(1) ||
-              chosenNumberBigInt > BigInt(6)
-            ) {
-              throw new Error('Invalid CoinFlip number after conversion');
-            }
-          } catch (conversionError) {
-            throw new Error(
-              'Invalid CoinFlip number. Please select a number between 1 and 6.'
-            );
-          }
+          // Use the mapped coin value for the contract
+          const chosenCoinValue = BigInt(coinValue);
 
           // Add transaction options
           const txOptions = {};
@@ -650,15 +642,21 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
           // Place bet
           let tx;
           try {
-            if (typeof contracts.CoinFlip.playCoinFlip === 'function') {
+            if (typeof contracts.CoinFlip.placeBet === 'function') {
+              tx = await contracts.CoinFlip.placeBet(
+                chosenCoinValue,
+                betAmount,
+                txOptions
+              );
+            } else if (typeof contracts.CoinFlip.playCoinFlip === 'function') {
               tx = await contracts.CoinFlip.playCoinFlip(
-                chosenNumberBigInt,
+                chosenCoinValue,
                 betAmount,
                 txOptions
               );
             } else {
               throw new Error(
-                'playCoinFlip method not found in CoinFlip contract'
+                'Contract missing required betting function'
               );
             }
             pendingTxRef.current = tx;

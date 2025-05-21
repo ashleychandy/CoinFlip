@@ -6,7 +6,7 @@ import {
   faRandom,
   faCheckCircle,
   faTimesCircle,
-  faCoinFlip,
+  faCoins,
   faChartLine,
   faTrophy,
   faWallet,
@@ -128,10 +128,7 @@ const WelcomeNewUser = () => (
         transition={{ type: 'spring', delay: 0.1, duration: 1 }}
         className="w-24 h-24 bg-white/70 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-6 shadow-md border border-[#22AD74]/20"
       >
-        <FontAwesomeIcon
-          icon={faCoinFlip}
-          className="text-[#22AD74] text-4xl"
-        />
+        <FontAwesomeIcon icon={faCoins} className="text-[#22AD74] text-4xl" />
       </motion.div>
 
       <h3 className="text-2xl font-bold text-[#22AD74] mb-3">Game History</h3>

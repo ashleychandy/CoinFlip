@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   faRandom,
-  faCoinFlip,
+  faCoins,
   faCubes,
   faChartLine,
   faChevronDown,
@@ -48,7 +48,7 @@ const WelcomeBanner = ({ onConnectClick }) => (
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2.5 bg-[#22AD74]/30 backdrop-blur-sm rounded-full shadow-sm">
             <FontAwesomeIcon
-              icon={faCoinFlip}
+              icon={faCoins}
               className="text-[#22AD74] text-xl"
             />
           </div>
@@ -386,7 +386,7 @@ const CoinFlipPage = ({ contracts, account, onError, addToast }) => {
                         {gameState.isRolling &&
                         gameStatus?.isActive &&
                         !gameStatus?.isCompleted
-                          ? 'Rolling CoinFlip...'
+                          ? 'Rolling Coin...'
                           : 'Processing your bet...'}
                       </span>
                     </span>
@@ -395,7 +395,7 @@ const CoinFlipPage = ({ contracts, account, onError, addToast }) => {
                   ) : needsApproval ? (
                     'Approve tokens first'
                   ) : !chosenNumber ? (
-                    'Choose a number to bet on'
+                    'Choose a coin to bet on'
                   ) : (
                     <span className="flex items-center justify-center">
                       <svg
@@ -418,7 +418,7 @@ const CoinFlipPage = ({ contracts, account, onError, addToast }) => {
                           d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                         ></path>
                       </svg>
-                      Roll CoinFlip
+                      Flip Coin
                     </span>
                   )}
                 </motion.button>
@@ -472,7 +472,7 @@ const CoinFlipPage = ({ contracts, account, onError, addToast }) => {
               className="bg-white backdrop-blur-3xl rounded-xl border border-secondary-200 shadow-xl"
             >
               <LatestBet
-                result={lastBetDetails?.result || gameState.lastResult}
+                betResult={lastBetDetails?.result || gameState.lastResult}
                 chosenNumber={lastBetDetails?.chosenNumber || chosenNumber}
                 betAmount={lastBetDetails?.betAmount || betAmount}
               />
@@ -627,7 +627,7 @@ const CoinFlipPage = ({ contracts, account, onError, addToast }) => {
                     >
                       <div className="w-12 h-12 rounded-full bg-[#22AD74]/10 flex items-center justify-center mb-4">
                         <FontAwesomeIcon
-                          icon={faCoinFlip}
+                          icon={faCoins}
                           className="text-[#22AD74] text-xl"
                         />
                       </div>
@@ -652,7 +652,7 @@ const CoinFlipPage = ({ contracts, account, onError, addToast }) => {
                             3
                           </div>
                           <span>
-                            Click &quot;Roll CoinFlip&quot; to place your bet
+                            Click &quot;Flip Coin&quot; to place your bet
                           </span>
                         </li>
                         <li className="flex items-start gap-3">

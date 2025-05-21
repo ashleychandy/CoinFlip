@@ -5,18 +5,22 @@ import { usePollingService } from '../../services/pollingService.jsx';
 import { useWallet } from '../wallet/WalletProvider.jsx';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faCoinFlip,
+  faCoins,
   faTrophy,
   faRandom,
-  faSync,
+  faSyncAlt as faSync,
   faClock,
   faWallet,
   faHistory,
   faSpinner,
   faCircle,
+  faExclamationTriangle,
+  faCheckCircle,
+  faCircleNotch,
 } from '@fortawesome/free-solid-svg-icons';
+import { formatDistanceToNow } from 'date-fns';
 
-const LatestBet = ({ result, chosenNumber, betAmount }) => {
+const LatestBet = ({ result: betResult, chosenNumber, betAmount }) => {
   // Use the polling service to get bet history data and game status
   const {
     betHistory: allBets,
@@ -69,13 +73,13 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
     }
 
     // Check if the result has a special rolledNumber value
-    if (result && result.rolledNumber !== undefined) {
-      const rolledNum = Number(result.rolledNumber);
+    if (betResult && betResult.rolledNumber !== undefined) {
+      const rolledNum = Number(betResult.rolledNumber);
       return rolledNum === 254 || rolledNum === 255; // RESULT_FORCE_STOPPED or RESULT_RECOVERED
     }
 
     return false;
-  }, [latestHistoryBet, result]);
+  }, [latestHistoryBet, betResult]);
 
   // Get the special result type if applicable
   const specialResultType = useMemo(() => {
@@ -87,28 +91,42 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
     }
 
     // Check result
-    if (result && result.rolledNumber !== undefined) {
-      const rolledNum = Number(result.rolledNumber);
+    if (betResult && betResult.rolledNumber !== undefined) {
+      const rolledNum = Number(betResult.rolledNumber);
       if (rolledNum === 254) return 'force_stopped';
       if (rolledNum === 255) return 'recovered';
     }
 
     return null;
-  }, [isSpecialResult, latestHistoryBet, result]);
+  }, [isSpecialResult, latestHistoryBet, betResult]);
 
   // Helper function to check if result matches the current bet values
-  const isCurrentBetResult = (result, chosenNum, amount) => {
-    if (!result || !chosenNum || !amount) return false;
+  const isCurrentBetResult = (resultObj, chosenNum, amount) => {
+    if (!resultObj || !chosenNum || !amount) return false;
 
     // Check if chosen number matches
     const resultChosenNum =
-      result.chosenNumber || (result.chosen ? Number(result.chosen) : null);
-    const chosenMatch = resultChosenNum === Number(chosenNum);
+      resultObj.chosenNumber ||
+      (resultObj.chosen ? Number(resultObj.chosen) : null);
+
+    // For coin-based comparisons:
+    // If result is number 1/2 and chosenNum is 'green'/'white'
+    let chosenMatch = false;
+    if (typeof chosenNum === 'string') {
+      if (chosenNum === 'green' && resultChosenNum === 1) {
+        chosenMatch = true;
+      } else if (chosenNum === 'white' && resultChosenNum === 2) {
+        chosenMatch = true;
+      }
+    } else {
+      // For backward compatibility with number-based system
+      chosenMatch = resultChosenNum === Number(chosenNum);
+    }
 
     // For amount, do a rough comparison to avoid precision issues
     let amountMatch = false;
     try {
-      const resultAmount = result.amount ? result.amount.toString() : '0';
+      const resultAmount = resultObj.amount ? resultObj.amount.toString() : '0';
       const betAmount = amount.toString();
       // Compare only the first few digits to avoid precision issues
       amountMatch = resultAmount.substring(0, 5) === betAmount.substring(0, 5);
@@ -135,10 +153,10 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
           type: specialResultType,
         };
       }
-      if (result) {
+      if (betResult) {
         return {
           source: 'special',
-          data: result,
+          data: betResult,
           type: specialResultType,
         };
       }
@@ -167,7 +185,7 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
     if (isWaitingForVrf) {
       return {
         source: 'pending',
-        data: result || {
+        data: betResult || {
           chosenNumber: gameStatus?.chosenNumber,
           amount: gameStatus?.amount,
           timestamp: gameStatus?.lastPlayTimestamp,
@@ -177,13 +195,13 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
 
     // If we have a valid result with rolledNumber, use it
     if (
-      result &&
-      typeof result.rolledNumber !== 'undefined' &&
-      result.rolledNumber !== null
+      betResult &&
+      typeof betResult.rolledNumber !== 'undefined' &&
+      betResult.rolledNumber !== null
     ) {
       return {
         source: 'current',
-        data: result,
+        data: betResult,
       };
     }
 
@@ -206,7 +224,7 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
     // No valid result to display
     return null;
   }, [
-    result,
+    betResult,
     latestHistoryBet,
     isWaitingForVrf,
     chosenNumber,
@@ -240,7 +258,7 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
   // Component for card header with pill-shaped status indicator
   const CardHeader = ({
     title = 'Latest Roll',
-    icon = faCoinFlip,
+    icon = faCoins,
     color = 'text-gray-400',
     status = null,
   }) => (
@@ -271,15 +289,11 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
         className={`${baseCardStyle}`}
         style={{ borderLeft: '3px solid #10b981' }}
       >
-        <CardHeader
-          title="Welcome!"
-          icon={faCoinFlip}
-          color="text-emerald-400"
-        />
+        <CardHeader title="Welcome!" icon={faCoins} color="text-emerald-400" />
         <div className="flex items-center space-x-3.5">
           <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 rounded-md p-2.5 flex items-center justify-center w-10 h-10">
             <FontAwesomeIcon
-              icon={faCoinFlip}
+              icon={faCoins}
               className="text-emerald-500 text-lg"
             />
           </div>
@@ -496,7 +510,7 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
     const pendingBetAmount = betAmount || gameStatus?.amount || '0';
     // Use game status timestamp if available, or current time
     const pendingStartTime =
-      result?.timestamp ||
+      betResult?.timestamp ||
       gameStatus?.lastPlayTimestamp ||
       Math.floor(Date.now() / 1000);
     const currentTime = Math.floor(Date.now() / 1000);
@@ -637,7 +651,7 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
       : {
           bg: 'from-rose-50 to-rose-100/50',
           text: 'text-rose-500',
-          icon: faCoinFlip,
+          icon: faCoins,
           accent: '#f43f5e',
           status: 'Loss',
         };
@@ -729,27 +743,247 @@ const LatestBet = ({ result, chosenNumber, betAmount }) => {
     );
   }
 
-  // Fallback if nothing else matches
+  // Add this function to convert numbers to coin types
+  const renderCoinType = num => {
+    // Convert number to coin type for display
+    if (num === 1) return 'Green Coin';
+    if (num === 2) return 'White Coin';
+    return 'Unknown';
+  };
+
+  // No result to display, show empty state
+  if (!displayResult) {
+    return (
+      <motion.div
+        initial="initial"
+        animate="animate"
+        whileHover="hover"
+        variants={cardVariants}
+        className={`${baseCardStyle} border-l-2 border-gray-200`}
+      >
+        <CardHeader title="No Bets Yet" />
+        <p className="text-gray-500 text-sm">
+          Place your first bet to see results here.
+        </p>
+      </motion.div>
+    );
+  }
+
+  // Show recovery needed state
+  if (isSpecialResult && displayResult.type === 'recovery_needed') {
+    return (
+      <motion.div
+        initial="initial"
+        animate="animate"
+        whileHover="hover"
+        variants={cardVariants}
+        className={`${baseCardStyle} border-l-2 border-amber-400`}
+      >
+        <CardHeader
+          title="Pending Result"
+          icon={faExclamationTriangle}
+          color="text-amber-400"
+          status={{ label: 'Recovery Needed', color: 'text-amber-500' }}
+        />
+
+        <div className="mt-2 flex items-center space-x-3">
+          <div className="bg-amber-50 text-amber-500 p-2 rounded-md">
+            <FontAwesomeIcon icon={faExclamationTriangle} size="lg" />
+          </div>
+          <div>
+            <p className="text-sm text-gray-600 leading-tight mb-1">
+              Your bet result is pending in the blockchain
+            </p>
+            <button
+              onClick={onRecoveryClick}
+              className="text-xs bg-amber-500/90 hover:bg-amber-600 text-white py-1 px-2 rounded"
+            >
+              Recover Result
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // Show recovered state
+  if (isSpecialResult && displayResult.type === 'recovered') {
+    const data = displayResult.data;
+    const dataBetAmount = data.amount;
+    const dataChosenNumber = data.chosenNumber || data.chosenSide;
+    const resultValue = data.result || data.flippedResult;
+    const didWin = dataChosenNumber === resultValue;
+
+    return (
+      <motion.div
+        initial="initial"
+        animate="animate"
+        whileHover="hover"
+        variants={cardVariants}
+        className={`${baseCardStyle} border-l-2 ${
+          didWin ? 'border-green-500' : 'border-red-400'
+        }`}
+      >
+        <CardHeader
+          title="Recovered Result"
+          icon={faCheckCircle}
+          color="text-green-400"
+          status={{
+            label: 'Recovered',
+            color: 'text-green-500',
+          }}
+        />
+
+        <div className="grid grid-cols-3 gap-2 my-2">
+          <div className="text-center">
+            <div className="text-xs text-gray-500">Amount</div>
+            <div className="text-sm font-medium">
+              {formatAmount(dataBetAmount)}
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-xs text-gray-500">Your Pick</div>
+            <div className="text-sm font-medium">
+              {renderCoinType(dataChosenNumber)}
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-xs text-gray-500">Result</div>
+            <div className="text-sm font-medium">
+              {renderCoinType(resultValue)}
+            </div>
+          </div>
+        </div>
+
+        {didWin ? (
+          <div className="bg-green-100 text-green-700 text-sm p-1.5 rounded text-center">
+            You won {formatAmount(BigInt(dataBetAmount) * BigInt(2))}!
+          </div>
+        ) : (
+          <div className="bg-red-50 text-red-600 text-sm p-1.5 rounded text-center">
+            Better luck next time!
+          </div>
+        )}
+      </motion.div>
+    );
+  }
+
+  // Show waiting for VRF state
+  if (displayResult.source === 'pending') {
+    const data = displayResult.data;
+    return (
+      <motion.div
+        initial="initial"
+        animate="animate"
+        variants={cardVariants}
+        className={`${baseCardStyle} border-l-2 border-blue-400`}
+      >
+        <CardHeader
+          title="Bet In Progress"
+          icon={faSync}
+          color="text-blue-400"
+          status={{ label: 'Rolling', color: 'text-blue-500' }}
+        />
+
+        <div className="mt-2 flex items-center space-x-3">
+          <div className="relative flex-shrink-0">
+            <div className="absolute inset-0 flex items-center justify-center animate-spin">
+              <FontAwesomeIcon icon={faCircleNotch} className="text-blue-400" />
+            </div>
+            <div className="bg-blue-50 text-blue-500 p-2 rounded-md flex items-center justify-center opacity-50">
+              <FontAwesomeIcon icon={faCoins} size="lg" />
+            </div>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-800 mb-0.5">
+              Your bet is processing
+            </p>
+            <div className="flex space-x-2 text-xs text-gray-500">
+              <div>Amount: {formatAmount(data.amount || BigInt(0))}</div>
+              <div>•</div>
+              <div>Pick: {renderCoinType(data.chosenNumber)}</div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // Process the result for display
+  const data = displayResult.data;
+  const displayBetAmount =
+    'amount' in data && data.amount
+      ? BigInt(data.amount.toString())
+      : BigInt(0);
+  const displayChosenNumber = data.chosenNumber || data.chosenSide;
+  const displayResultValue =
+    data.rolledNumber || data.flippedResult || data.result;
+  const timestamp = data.timestamp;
+
+  // Did user win?
+  const didWin = displayChosenNumber === displayResultValue;
+
+  // Format time as relative
+  const timeAgo = timestamp
+    ? formatDistanceToNow(new Date(Number(timestamp) * 1000), {
+        addSuffix: true,
+      })
+    : '?';
+
+  // Main display - show bet result
   return (
     <motion.div
       initial="initial"
       animate="animate"
       whileHover="hover"
       variants={cardVariants}
-      className={`${baseCardStyle}`}
-      style={{ borderLeft: '3px solid #9ca3af' }}
+      className={`${baseCardStyle} border-l-2 ${
+        didWin ? 'border-green-500' : 'border-red-400'
+      }`}
     >
-      <CardHeader />
-      <div className="flex items-center space-x-3.5">
-        <div className="bg-gradient-to-br from-gray-50 to-gray-100/50 rounded-md p-2.5 flex items-center justify-center w-10 h-10">
-          <FontAwesomeIcon
-            icon={faCoinFlip}
-            className="text-gray-300 text-lg"
-          />
+      <CardHeader
+        title="Latest Bet"
+        icon={faCoins}
+        color={didWin ? 'text-green-500' : 'text-red-400'}
+        status={{
+          label: didWin ? 'Won' : 'Lost',
+          color: didWin ? 'text-green-500' : 'text-red-500',
+        }}
+      />
+
+      <div className="grid grid-cols-3 gap-2 my-2">
+        <div className="text-center">
+          <div className="text-xs text-gray-500">Amount</div>
+          <div className="text-sm font-medium">
+            {formatAmount(displayBetAmount)}
+          </div>
         </div>
-        <div>
-          <p className="text-gray-500 text-sm">No bet history available</p>
+        <div className="text-center">
+          <div className="text-xs text-gray-500">Your Pick</div>
+          <div className="text-sm font-medium">
+            {renderCoinType(displayChosenNumber)}
+          </div>
         </div>
+        <div className="text-center">
+          <div className="text-xs text-gray-500">Result</div>
+          <div className="text-sm font-medium">
+            {renderCoinType(displayResultValue)}
+          </div>
+        </div>
+      </div>
+
+      {didWin ? (
+        <div className="bg-green-100 text-green-700 text-sm p-1.5 rounded text-center">
+          You won {formatAmount(BigInt(displayBetAmount) * BigInt(2))}!
+        </div>
+      ) : (
+        <div className="bg-red-50 text-red-600 text-sm p-1.5 rounded text-center">
+          Better luck next time!
+        </div>
+      )}
+
+      <div className="mt-2 text-right">
+        <span className="text-xs text-gray-400">{timeAgo}</span>
       </div>
     </motion.div>
   );
