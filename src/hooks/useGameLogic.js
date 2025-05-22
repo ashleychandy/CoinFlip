@@ -530,22 +530,18 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     if (chosenNumber === null || chosenNumber === undefined) {
       addToast({
         title: 'Invalid Input',
-        description: 'Please select a coin first',
+        description: 'Please select a coin side first',
         type: 'warning',
       });
       return;
     }
 
-    // Convert coin type to number value that contract expects
-    let coinValue;
-    if (chosenNumber === 'green') {
-      coinValue = 1; // Green maps to HEADS (1)
-    } else if (chosenNumber === 'white') {
-      coinValue = 2; // White maps to TAILS (2)
-    } else {
+    // The chosenNumber should directly be either 1 (HEADS) or 2 (TAILS)
+    // No mapping is needed as the UI component now handles this conversion
+    if (chosenNumber !== 1 && chosenNumber !== 2) {
       addToast({
         title: 'Invalid Input',
-        description: 'Please select either Green or White coin',
+        description: 'Please select either Heads (1) or Tails (2)',
         type: 'warning',
       });
       return;
@@ -598,8 +594,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
           // Check contract availability
           if (
             !contracts.CoinFlip ||
-            (typeof contracts.CoinFlip.placeBet !== 'function' &&
-              typeof contracts.CoinFlip.playCoinFlip !== 'function')
+            typeof contracts.CoinFlip.flipCoin !== 'function'
           ) {
             throw new Error('CoinFlip contract is not properly initialized');
           }
@@ -633,32 +628,18 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
             type: 'info',
           });
 
-          // Use the mapped coin value for the contract
-          const chosenCoinValue = BigInt(coinValue);
-
           // Add transaction options
           const txOptions = {};
 
           // Place bet
           let tx;
           try {
-            if (typeof contracts.CoinFlip.placeBet === 'function') {
-              tx = await contracts.CoinFlip.placeBet(
-                chosenCoinValue,
-                betAmount,
-                txOptions
-              );
-            } else if (typeof contracts.CoinFlip.playCoinFlip === 'function') {
-              tx = await contracts.CoinFlip.playCoinFlip(
-                chosenCoinValue,
-                betAmount,
-                txOptions
-              );
-            } else {
-              throw new Error(
-                'Contract missing required betting function'
-              );
-            }
+            // Call the flipCoin function with the chosen side (1=HEADS, 2=TAILS) and bet amount
+            tx = await contracts.CoinFlip.flipCoin(
+              chosenNumber, // Use chosenNumber directly (1 or 2)
+              betAmount,
+              txOptions
+            );
             pendingTxRef.current = tx;
           } catch (txError) {
             handleContractError(txError, addToast);

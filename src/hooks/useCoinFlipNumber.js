@@ -3,55 +3,57 @@ import { useContractConstants } from './useContractConstants.js';
 import { usePollingService } from '../services/pollingService.jsx';
 
 /**
- * Simplified custom hook to manage CoinFlip number display
+ * Simplified custom hook to manage CoinFlip side display
  *
  * @param {Object|null} result - The game result object
- * @param {Number|null} chosenNumber - The number chosen by the player
- * @param {Boolean} isRolling - Whether the CoinFlip is currently rolling
- * @returns {Object} - The CoinFlip number to display
+ * @param {Number|null} chosenNumber - The side chosen by the player (1=HEADS, 2=TAILS)
+ * @param {Boolean} isRolling - Whether the Coin is currently flipping
+ * @returns {Object} - The Coin side to display
  */
 export const useCoinFlipNumber = (result, chosenNumber, isRolling) => {
   const { constants } = useContractConstants();
   const { gameStatus } = usePollingService();
 
-  // State for CoinFlip number management
-  const [randomCoinFlipNumber, setRandomCoinFlipNumber] = useState(1);
-  const [rolledNumber, setRolledNumber] = useState(null);
-  const [lastRolledNumber, setLastRolledNumber] = useState(null);
+  // State for Coin side management
+  const [randomCoinSide, setRandomCoinSide] = useState(1);
+  const [flippedSide, setFlippedSide] = useState(null);
+  const [lastFlippedSide, setLastFlippedSide] = useState(null);
+
+  // Constants for coin sides
+  const HEADS = 1;
+  const TAILS = 2;
+  const MIN_COIN_SIDE = HEADS;
+  const MAX_COIN_SIDE = TAILS;
 
   // Initialize state from game status on component mount
   useEffect(() => {
     if (gameStatus && gameStatus.isActive) {
       // If we have a chosen number from contract, update state
       if (gameStatus.chosenNumber) {
-        // Store the chosen number as the last rolled number if we don't have a result yet
-        setLastRolledNumber(gameStatus.chosenNumber);
+        // Store the chosen side as the last flipped side if we don't have a result yet
+        setLastFlippedSide(gameStatus.chosenNumber);
       }
     }
   }, [gameStatus]);
 
-  // Get random CoinFlip number within valid range
-  const getRandomCoinFlipNumber = useCallback(
-    () =>
-      Math.floor(
-        Math.random() *
-          (constants.MAX_CoinFlip_NUMBER - constants.MIN_CoinFlip_NUMBER + 1)
-      ) + constants.MIN_CoinFlip_NUMBER,
-    [constants]
+  // Get random coin side (either 1 or 2)
+  const getRandomCoinSide = useCallback(
+    () => Math.floor(Math.random() * 2) + 1, // Returns either 1 (HEADS) or 2 (TAILS)
+    []
   );
 
-  // Update random CoinFlip number when rolling
+  // Update random coin side when flipping
   useEffect(() => {
     let intervalId;
     let timeoutId;
 
-    if (isRolling && !rolledNumber) {
-      // Create a rolling effect by changing the number rapidly
+    if (isRolling && !flippedSide) {
+      // Create a flipping effect by changing the side rapidly
       intervalId = setInterval(() => {
-        setRandomCoinFlipNumber(getRandomCoinFlipNumber());
-      }, 150); // Change number every 150ms for a realistic rolling effect
+        setRandomCoinSide(getRandomCoinSide());
+      }, 150); // Change side every 150ms for a realistic flipping effect
 
-      // Automatically stop rolling after 15 seconds
+      // Automatically stop flipping after 15 seconds
       timeoutId = setTimeout(() => {
         if (intervalId) {
           clearInterval(intervalId);
@@ -68,118 +70,103 @@ export const useCoinFlipNumber = (result, chosenNumber, isRolling) => {
         clearTimeout(timeoutId);
       }
     };
-  }, [isRolling, rolledNumber, getRandomCoinFlipNumber]);
+  }, [isRolling, flippedSide, getRandomCoinSide]);
 
   // Handle the result when it arrives
   useEffect(() => {
     if (result) {
-      // Extract the correct number from the result object
-      let resultNumber = null;
+      // Extract the correct side from the result object
+      let resultSide = null;
 
       if (result.rolledNumber !== undefined) {
-        resultNumber =
+        resultSide =
           typeof result.rolledNumber === 'string'
             ? parseInt(result.rolledNumber, 10)
             : Number(result.rolledNumber);
       } else if (result.number !== undefined) {
-        resultNumber =
+        resultSide =
           typeof result.number === 'string'
             ? parseInt(result.number, 10)
             : Number(result.number);
       } else if (typeof result === 'number') {
-        resultNumber = result;
+        resultSide = result;
       }
 
       // Validate the result number is not NaN
-      if (isNaN(resultNumber)) {
-        resultNumber = null;
+      if (isNaN(resultSide)) {
+        resultSide = null;
       }
 
-      // Only update the rolled number if we have a valid result
-      if (resultNumber !== null) {
-        setRolledNumber(resultNumber);
+      // Only update the flipped side if we have a valid result
+      if (resultSide !== null) {
+        setFlippedSide(resultSide);
       }
 
-      // Store the last valid rolled number (1-6)
-      if (
-        resultNumber >= constants.MIN_CoinFlip_NUMBER &&
-        resultNumber <= constants.MAX_CoinFlip_NUMBER
-      ) {
-        setLastRolledNumber(resultNumber);
+      // Store the last valid flipped side (1-2)
+      if (resultSide >= MIN_COIN_SIDE && resultSide <= MAX_COIN_SIDE) {
+        setLastFlippedSide(resultSide);
       }
     } else {
-      // Reset state when no result, but keep lastRolledNumber
-      setRolledNumber(null);
+      // Reset state when no result, but keep lastFlippedSide
+      setFlippedSide(null);
     }
-  }, [result, constants]);
+  }, [result]);
 
-  // Function to get the number to display on the CoinFlip
+  // Function to get the side to display on the Coin
   const getDisplayNumber = () => {
-    // If we have a result, show the actual rolled number
-    if (rolledNumber !== null) {
-      // If special result (254 or 255), show a default face or last rolled
+    // If we have a result, show the actual flipped side
+    if (flippedSide !== null) {
+      // If special result (254 or 255), show a default side or last flipped
       if (
-        rolledNumber === constants.RESULT_RECOVERED ||
-        rolledNumber === constants.RESULT_FORCE_STOPPED
+        flippedSide === constants.RESULT_RECOVERED ||
+        flippedSide === constants.RESULT_FORCE_STOPPED
       ) {
-        // For special results, use the last valid CoinFlip number or default to 1
-        return lastRolledNumber || constants.MIN_CoinFlip_NUMBER;
+        // For special results, use the last valid Coin side or default to HEADS
+        return lastFlippedSide || HEADS;
       }
 
-      // Make sure we only return valid CoinFlip numbers (1-6)
-      if (
-        rolledNumber >= constants.MIN_CoinFlip_NUMBER &&
-        rolledNumber <= constants.MAX_CoinFlip_NUMBER
-      ) {
-        return rolledNumber;
+      // Make sure we only return valid Coin sides (1-2)
+      if (flippedSide >= MIN_COIN_SIDE && flippedSide <= MAX_COIN_SIDE) {
+        return flippedSide;
       }
 
-      // For any other invalid number, show last valid roll or chosen number
+      // For any other invalid side, show last valid flip or chosen side
       if (
-        lastRolledNumber >= constants.MIN_CoinFlip_NUMBER &&
-        lastRolledNumber <= constants.MAX_CoinFlip_NUMBER
+        lastFlippedSide >= MIN_COIN_SIDE &&
+        lastFlippedSide <= MAX_COIN_SIDE
       ) {
-        return lastRolledNumber;
+        return lastFlippedSide;
       }
 
-      if (
-        chosenNumber >= constants.MIN_CoinFlip_NUMBER &&
-        chosenNumber <= constants.MAX_CoinFlip_NUMBER
-      ) {
+      if (chosenNumber >= MIN_COIN_SIDE && chosenNumber <= MAX_COIN_SIDE) {
         return chosenNumber;
       }
 
-      // Last resort - show minimum number
-      return constants.MIN_CoinFlip_NUMBER;
+      // Last resort - show HEADS
+      return HEADS;
     }
 
-    // If rolling but no result yet, show random number
+    // If flipping but no result yet, show random side
     if (isRolling) {
-      return randomCoinFlipNumber;
+      return randomCoinSide;
     }
 
-    // If we have a previous roll, show that number if it's valid
-    if (
-      lastRolledNumber >= constants.MIN_CoinFlip_NUMBER &&
-      lastRolledNumber <= constants.MAX_CoinFlip_NUMBER
-    ) {
-      return lastRolledNumber;
+    // If we have a previous flip, show that side if it's valid
+    if (lastFlippedSide >= MIN_COIN_SIDE && lastFlippedSide <= MAX_COIN_SIDE) {
+      return lastFlippedSide;
     }
 
-    // If we have a chosen number, show that if it's valid
-    if (
-      chosenNumber >= constants.MIN_CoinFlip_NUMBER &&
-      chosenNumber <= constants.MAX_CoinFlip_NUMBER
-    ) {
+    // If we have a chosen side, show that if it's valid
+    if (chosenNumber >= MIN_COIN_SIDE && chosenNumber <= MAX_COIN_SIDE) {
       return chosenNumber;
     }
 
-    // Default to minimum number
-    return constants.MIN_CoinFlip_NUMBER;
+    // Default to HEADS
+    return HEADS;
   };
 
   return {
-    // Only return the display number, everything else is now managed by the component
+    // Only return the display side, everything else is managed by the component
     displayNumber: getDisplayNumber(),
   };
 };

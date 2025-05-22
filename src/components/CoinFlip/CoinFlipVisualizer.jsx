@@ -142,13 +142,13 @@ const CoinFlipVisualizer = ({
   // Error handling for any potential rendering issues
   useEffect(() => {
     try {
-      // Validate displayNumber is a number between 1-6
+      // Validate displayNumber is either 1 (HEADS) or 2 (TAILS)
       if (
         displayNumber &&
-        (displayNumber < 1 || displayNumber > 6 || isNaN(displayNumber))
+        (displayNumber < 1 || displayNumber > 2 || isNaN(displayNumber))
       ) {
         setHasError(true);
-        setErrorMessage(`Invalid CoinFlip number: ${displayNumber}`);
+        setErrorMessage(`Invalid Coin side: ${displayNumber}`);
       } else {
         // Reset error state if everything is valid
         setHasError(false);
@@ -156,192 +156,74 @@ const CoinFlipVisualizer = ({
       }
     } catch (error) {
       setHasError(true);
-      setErrorMessage(error.message || 'Error rendering CoinFlip');
+      setErrorMessage(error.message || 'Error rendering Coin');
     }
   }, [displayNumber]);
 
-  // Function to render a dot in the CoinFlip with enhanced animations
-  const renderDot = (size = 'w-5 h-5', index = 0) => (
-    <motion.div
-      key={`dot-${animationKey}-${index}`}
-      className={`${size} CoinFlip-dot`}
-      initial={{ scale: 0, opacity: 0 }}
-      animate={
-        shouldRollCoinFlip
-          ? {
-              // Slow, smooth blinking animation during rolling state
-              opacity: [0.5, 1, 0.5],
-              scale: [0.9, 1, 0.9],
-              boxShadow: [
-                '0 0 2px rgba(255,255,255,0.4)',
-                '0 0 8px rgba(255,255,255,0.8)',
-                '0 0 2px rgba(255,255,255,0.4)',
-              ],
-            }
-          : {
-              scale: 1,
-              opacity: 1,
-              rotate: [0, 10, -10, 5, -5, 0],
-              backgroundColor: [
-                'rgba(255,255,255,0.8)',
-                '#ffffff',
-                '#f8f8f8',
-                '#ffffff',
-              ],
-            }
-      }
-      transition={
-        shouldRollCoinFlip
-          ? {
-              // Slow, smooth transition for rolling state
-              repeat: Infinity,
-              duration: 2.5 + index * 0.4, // Varied timing for each dot
-              repeatType: 'reverse',
-              ease: 'easeInOut',
-            }
-          : {
-              type: 'spring',
-              stiffness: 250,
-              damping: 15,
-              duration: 0.4,
-              delay: index * 0.06, // Staggered animation
-              backgroundColor: { duration: 0.8, ease: 'easeInOut' },
-            }
-      }
-      style={{
-        backgroundColor: 'white',
-        boxShadow: shouldRollCoinFlip
-          ? '0 0 5px rgba(255,255,255,0.6)'
-          : '0 0 3px rgba(0,0,0,0.2)',
-        borderRadius: '50%',
-      }}
-    />
-  );
+  // Function to render a coin face with appropriate styling
+  const renderCoinFace = side => {
+    const isHeads = side === 1;
 
-  // Function to render the CoinFlip face based on number
-  const renderCoinFlipFace = number => {
+    return (
+      <motion.div
+        className="absolute inset-0 rounded-full flex items-center justify-center"
+        style={{
+          backgroundColor: isHeads ? '#22AD74' : '#f0f0f0',
+          boxShadow: `0 0 10px ${isHeads ? 'rgba(34, 173, 116, 0.4)' : 'rgba(0,0,0,0.2)'}`,
+          border: `4px solid ${isHeads ? '#1a8e5e' : '#dedede'}`,
+        }}
+        initial={{ rotateY: 180, opacity: 0 }}
+        animate={{
+          rotateY: 0,
+          opacity: 1,
+          scale: [0.8, 1.05, 1],
+        }}
+        transition={{
+          type: 'spring',
+          stiffness: 150,
+          damping: 15,
+        }}
+      >
+        <div className="text-center">
+          <div
+            className="text-2xl font-bold mb-1"
+            style={{ color: isHeads ? 'white' : '#555' }}
+          >
+            {isHeads ? 'HEADS' : 'TAILS'}
+          </div>
+          <div
+            className="text-sm"
+            style={{ color: isHeads ? 'rgba(255,255,255,0.8)' : '#777' }}
+          >
+            {isHeads ? '(1)' : '(2)'}
+          </div>
+        </div>
+      </motion.div>
+    );
+  };
+
+  // Function to render the coin based on current state
+  const renderCoin = number => {
     // Default to 1 for invalid numbers to prevent UI errors
-    const safeNumber = number >= 1 && number <= 6 ? number : 1;
+    const safeSide = number >= 1 && number <= 2 ? number : 1;
 
-    // Configuration for dot positions based on CoinFlip number
-    const dotConfigurations = {
-      1: (
-        <div className="absolute inset-0 flex items-center justify-center p-6">
-          {renderDot('w-12 h-12', 0)}
-        </div>
-      ),
-      2: (
-        <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 p-6 gap-2">
-          <div className="flex items-start justify-start">
-            {renderDot('w-8 h-8', 0)}
-          </div>
-          <div></div>
-          <div></div>
-          <div className="flex items-end justify-end">
-            {renderDot('w-8 h-8', 1)}
-          </div>
-        </div>
-      ),
-      3: (
-        <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 p-6 gap-1">
-          <div className="flex items-start justify-start">
-            {renderDot('w-8 h-8', 0)}
-          </div>
-          <div></div>
-          <div></div>
-          <div></div>
-          <div className="flex items-center justify-center">
-            {renderDot('w-8 h-8', 1)}
-          </div>
-          <div></div>
-          <div></div>
-          <div></div>
-          <div className="flex items-end justify-end">
-            {renderDot('w-8 h-8', 2)}
-          </div>
-        </div>
-      ),
-      4: (
-        <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 p-6 gap-4">
-          <div className="flex items-start justify-start">
-            {renderDot('w-8 h-8', 0)}
-          </div>
-          <div className="flex items-start justify-end">
-            {renderDot('w-8 h-8', 1)}
-          </div>
-          <div className="flex items-end justify-start">
-            {renderDot('w-8 h-8', 2)}
-          </div>
-          <div className="flex items-end justify-end">
-            {renderDot('w-8 h-8', 3)}
-          </div>
-        </div>
-      ),
-      5: (
-        <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 p-6 gap-2">
-          <div className="flex items-start justify-start">
-            {renderDot('w-8 h-8', 0)}
-          </div>
-          <div></div>
-          <div className="flex items-start justify-end">
-            {renderDot('w-8 h-8', 1)}
-          </div>
-          <div></div>
-          <div className="flex items-center justify-center">
-            {renderDot('w-9 h-9', 2)}
-          </div>
-          <div></div>
-          <div className="flex items-end justify-start">
-            {renderDot('w-8 h-8', 3)}
-          </div>
-          <div></div>
-          <div className="flex items-end justify-end">
-            {renderDot('w-8 h-8', 4)}
-          </div>
-        </div>
-      ),
-      6: (
-        <div className="absolute inset-0 grid grid-cols-2 grid-rows-3 p-6 gap-3">
-          <div className="flex items-start justify-start">
-            {renderDot('w-8 h-8', 0)}
-          </div>
-          <div className="flex items-start justify-end">
-            {renderDot('w-8 h-8', 1)}
-          </div>
-          <div className="flex items-center justify-start">
-            {renderDot('w-8 h-8', 2)}
-          </div>
-          <div className="flex items-center justify-end">
-            {renderDot('w-8 h-8', 3)}
-          </div>
-          <div className="flex items-end justify-start">
-            {renderDot('w-8 h-8', 4)}
-          </div>
-          <div className="flex items-end justify-end">
-            {renderDot('w-8 h-8', 5)}
-          </div>
-        </div>
-      ),
-    };
-
-    return dotConfigurations[safeNumber] || dotConfigurations[1];
+    return renderCoinFace(safeSide);
   };
 
   // Rolling animation variants
   const rollingVariants = {
     rolling: {
-      rotate: [-5, 5, -3, 3, 0],
-      scale: [1, 0.97, 1.02, 0.98, 1],
+      rotateX: [0, 180, 360, 540, 720, 900, 1080],
+      scale: [1, 0.9, 1.05, 0.95, 1],
       transition: {
-        duration: 4,
-        repeat: 3,
+        duration: 3,
+        repeat: Infinity,
         ease: 'easeInOut',
-        repeatType: 'mirror',
-        maxDuration: 15,
+        repeatType: 'loop',
       },
     },
     static: {
-      rotate: 0,
+      rotateX: 0,
       scale: 1,
       transition: {
         type: 'spring',
@@ -355,9 +237,9 @@ const CoinFlipVisualizer = ({
   // Fallback UI for error state
   if (hasError) {
     return (
-      <div className="CoinFlip-container flex items-center justify-center bg-red-100 border border-red-300 rounded-lg p-4">
+      <div className="coin-container flex items-center justify-center bg-red-100 border border-red-300 rounded-lg p-4">
         <div className="text-red-700 text-center">
-          <p className="font-medium">Error displaying CoinFlip</p>
+          <p className="font-medium">Error displaying Coin</p>
           <p className="text-sm">{errorMessage || 'Please try again'}</p>
         </div>
       </div>
@@ -368,15 +250,21 @@ const CoinFlipVisualizer = ({
       className="relative w-full h-full flex flex-col items-center justify-center"
       style={{ perspective: '1000px' }}
     >
-      {/* Main CoinFlip */}
+      {/* Main Coin */}
       <motion.div
-        className="CoinFlip-face"
+        className="relative w-40 h-40 rounded-full"
         variants={rollingVariants}
         animate={shouldRollCoinFlip ? 'rolling' : 'static'}
         data-rolling={shouldRollCoinFlip ? 'true' : 'false'}
       >
-        {renderCoinFlipFace(displayNumber)}
+        {renderCoin(displayNumber)}
       </motion.div>
+
+      {shouldRollCoinFlip && (
+        <div className="mt-6 text-center text-sm text-secondary-600">
+          Flipping coin...
+        </div>
+      )}
     </div>
   );
 };

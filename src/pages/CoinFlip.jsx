@@ -58,8 +58,8 @@ const WelcomeBanner = ({ onConnectClick }) => (
         </div>
 
         <p className="text-gray-700 mb-5 text-lg">
-          Choose your number, place your bet, and roll the CoinFlip for a chance
-          to win up to 6x your stake!
+          Choose your number, place your bet, and flip the Coin for a chance to
+          win up to 2x your stake!
         </p>
 
         <div className="bg-white/70 backdrop-blur-sm p-4 rounded-xl border border-[#22AD74]/15 mb-4 shadow-sm">
@@ -84,7 +84,7 @@ const WelcomeBanner = ({ onConnectClick }) => (
               <div className="w-6 h-6 rounded-full bg-[#22AD74]/20 flex items-center justify-center text-xs text-[#22AD74] font-bold shadow-inner">
                 3
               </div>
-              <span>Win instantly when the CoinFlip rolls your number</span>
+              <span>Win instantly when the Coin Flips</span>
             </li>
           </ul>
         </div>
@@ -174,6 +174,19 @@ const CoinFlipPage = ({ contracts, account, onError, addToast }) => {
     handlePlaceBet,
   } = useGameLogic(contracts, account, onError, addToast);
 
+  // Convert between UI representation (heads/tails) and contract values (1/2)
+  const handleCoinSideSelected = side => {
+    // HEADS = 1, TAILS = 2 in the contract
+    setChosenNumber(side === 'heads' ? 1 : 2);
+  };
+
+  // Get current UI value from contract value
+  const getCurrentSelectedSide = () => {
+    if (chosenNumber === 1) return 'heads';
+    if (chosenNumber === 2) return 'tails';
+    return null;
+  };
+
   // When bet is placed, immediately update UI with the result
   useEffect(() => {
     if (gameState.lastResult) {
@@ -233,8 +246,8 @@ const CoinFlipPage = ({ contracts, account, onError, addToast }) => {
             CoinFlip Game
           </h1>
           <p className="text-secondary-700 text-lg max-w-2xl mx-auto">
-            Choose a number, place your bet, and test your luck! Win up to 6x
-            your bet amount.
+            Choose Heads or Tails, place your bet, and test your luck! Win up to
+            2x your bet amount.
           </p>
         </div>
 
@@ -273,8 +286,8 @@ const CoinFlipPage = ({ contracts, account, onError, addToast }) => {
 
               <div className="mb-4">
                 <NumberSelector
-                  value={chosenNumber}
-                  onChange={setChosenNumber}
+                  value={getCurrentSelectedSide()}
+                  onChange={handleCoinSideSelected}
                   disabled={gameState.isProcessing}
                 />
               </div>
@@ -639,7 +652,7 @@ const CoinFlipPage = ({ contracts, account, onError, addToast }) => {
                           <div className="w-5 h-5 rounded-full bg-[#22AD74]/20 flex flex-shrink-0 items-center justify-center text-xs text-[#22AD74] font-bold mt-0.5">
                             1
                           </div>
-                          <span>Choose a number between 1 and 6</span>
+                          <span>Choose either Heads or Tails</span>
                         </li>
                         <li className="flex items-start gap-3">
                           <div className="w-5 h-5 rounded-full bg-[#22AD74]/20 flex flex-shrink-0 items-center justify-center text-xs text-[#22AD74] font-bold mt-0.5">
@@ -666,7 +679,7 @@ const CoinFlipPage = ({ contracts, account, onError, addToast }) => {
                             5
                           </div>
                           <span>
-                            If the CoinFlip rolls your number, you win
+                            If the Coin Flip matches your choice, you win
                             instantly!
                           </span>
                         </li>
@@ -695,13 +708,13 @@ const CoinFlipPage = ({ contracts, account, onError, addToast }) => {
                             <tr className="border-b border-gray-100">
                               <td className="py-2.5">Win Probability:</td>
                               <td className="py-2.5 text-right font-semibold">
-                                16.67% (1/6)
+                                50% (1/2)
                               </td>
                             </tr>
                             <tr className="border-b border-gray-100">
                               <td className="py-2.5">Payout Multiplier:</td>
                               <td className="py-2.5 text-right font-semibold text-[#22AD74]">
-                                6x
+                                2x
                               </td>
                             </tr>
                             <tr className="border-b border-gray-100">
@@ -711,21 +724,19 @@ const CoinFlipPage = ({ contracts, account, onError, addToast }) => {
                               </td>
                             </tr>
                             <tr className="border-b border-gray-100">
-                              <td className="py-2.5">
-                                CoinFlip Outcome Range:
-                              </td>
+                              <td className="py-2.5">Coin Flip Outcome:</td>
                               <td className="py-2.5 text-right font-semibold">
-                                1-6
+                                Heads or Tails
                               </td>
                             </tr>
                           </tbody>
                         </table>
                         <div className="pt-3 mt-1">
                           <p className="text-sm text-gray-600">
-                            For each CoinFlip roll, you choose one number from 1
-                            to 6. When you win (the roll matches your chosen
-                            number), you receive 6x your bet amount, giving the
-                            game a true 0% house edge with fair odds.
+                            For each coin flip, you choose either Heads or
+                            Tails. When you win (the flip matches your
+                            chosen side), you receive 2x your bet amount, giving
+                            the game a true 0% house edge with fair odds.
                           </p>
                           <p className="text-xs text-[#22AD74] italic mt-2">
                             Note: Blockchain transaction fees apply to all bets
@@ -774,8 +785,8 @@ const CoinFlipPage = ({ contracts, account, onError, addToast }) => {
                               randomness
                             </li>
                             <li>
-                              The CoinFlip result is determined transparently
-                              on-chain
+                              The coin flip result (Heads or Tails) is
+                              determined transparently on-chain
                             </li>
                             <li>
                               If you win, your payout is minted directly to your
@@ -847,7 +858,7 @@ const CoinFlipPage = ({ contracts, account, onError, addToast }) => {
                                   Maximum Win:
                                 </td>
                                 <td className="py-1.5 text-right font-medium text-gray-800">
-                                  60,000,000 GAMA
+                                  20,000,000 GAMA
                                 </td>
                               </tr>
                             </tbody>
