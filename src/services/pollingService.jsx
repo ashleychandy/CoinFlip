@@ -120,7 +120,9 @@ export const PollingProvider = ({
               isActive: status.isActive,
               isWin: status.isWin,
               isCompleted: status.isCompleted,
-              chosenNumber: Number(status.chosenNumber),
+              chosenNumber: status.chosenSide
+                ? Number(status.chosenSide)
+                : null,
               amount: status.amount.toString(),
               result: Number(status.result),
               payout: status.payout.toString(),

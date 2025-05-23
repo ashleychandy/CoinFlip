@@ -20,7 +20,7 @@ import { handleContractError } from '../utils/errorHandling';
 const useBetState = (initialBetAmount = '1000000000000000000') => {
   // Store betAmount as string to avoid serialization issues
   const [betAmount, setBetAmountRaw] = useState(initialBetAmount);
-  const [chosenNumber, setChosenNumber] = useState(null);
+  const [chosenNumber, setChosenNumber] = useState(1);
   const lastBetAmountRef = useRef(initialBetAmount);
 
   const setBetAmount = useCallback(amount => {
@@ -63,7 +63,7 @@ const useBetState = (initialBetAmount = '1000000000000000000') => {
   // Reset function to clear bet state
   const resetBetState = useCallback(() => {
     setBetAmountRaw(initialBetAmount);
-    setChosenNumber(null);
+    setChosenNumber(1);
     lastBetAmountRef.current = initialBetAmount;
   }, [initialBetAmount]);
 

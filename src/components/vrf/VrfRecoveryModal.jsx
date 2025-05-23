@@ -222,9 +222,13 @@ const VrfRecoveryModal = ({ isOpen, onClose }) => {
             {gameStatus?.isActive && (
               <div className="mt-4 text-sm text-gray-600 border border-gray-200/80 rounded-lg p-3 bg-white/50">
                 <div className="grid grid-cols-2 gap-2">
-                  <div>Bet Number:</div>
+                  <div>Bet Side:</div>
                   <div className="font-medium">
-                    {gameStatus?.chosenNumber || 'Unknown'}
+                    {gameStatus?.chosenNumber === 2
+                      ? 'Tails'
+                      : gameStatus?.chosenNumber === 1
+                        ? 'Heads'
+                        : 'Waiting for confirmation...'}
                   </div>
 
                   <div>Bet Amount:</div>
