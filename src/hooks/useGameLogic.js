@@ -541,7 +541,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     if (chosenNumber !== 1 && chosenNumber !== 2) {
       addToast({
         title: 'Invalid Input',
-        description: 'Please select either Heads (1) or Tails (2)',
+        description: 'Please select either Heads or Tails',
         type: 'warning',
       });
       return;

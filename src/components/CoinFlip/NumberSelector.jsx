@@ -48,9 +48,6 @@ const CoinOption = ({ coinSide, selected, onClick, disabled }) => {
         <span className="font-semibold">
           {coinSide === 'heads' ? 'Heads' : 'Tails'}
         </span>
-        <span className="text-xs opacity-75">
-          ({coinSide === 'heads' ? '1' : '2'})
-        </span>
       </div>
 
       {/* Subtle glow effect when selected */}
