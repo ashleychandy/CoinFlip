@@ -190,8 +190,8 @@ const getSpecialResultDescription = (resultType, payout) => {
 
 // Helper function to convert number to coin side
 const getCoinSide = number => {
-  if (number === 1) return 'HEADS';
-  if (number === 2) return 'TAILS';
+  if (number === 1) return 'H';
+  if (number === 2) return 'T';
   return '?';
 };
 
@@ -390,7 +390,7 @@ const GameHistoryItem = ({ game, index, compact = false }) => {
                 <motion.div
                   initial={{ scale: 0.8, rotate: -10 }}
                   animate={{ scale: 1, rotate: 0 }}
-                  className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm
+                  className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm text-2xl font-bold
                     ${
                       resultType === 'WIN'
                         ? 'bg-green-200 text-green-800'
@@ -399,7 +399,7 @@ const GameHistoryItem = ({ game, index, compact = false }) => {
                           : 'bg-secondary-200 text-secondary-800'
                     }`}
                 >
-                  <span className="text-sm font-bold">{flippedSide}</span>
+                  {flippedSide}
                 </motion.div>
                 {resultType === 'WIN' && (
                   <motion.div
@@ -542,7 +542,7 @@ const GameHistoryItem = ({ game, index, compact = false }) => {
               <div className="font-medium text-secondary-800 text-lg">
                 Chosen:{' '}
                 <span
-                  className={`${resultType === 'WIN' ? 'text-green-700 font-bold' : ''}`}
+                  className={`text-xl ${resultType === 'WIN' ? 'text-green-700 font-bold' : ''}`}
                 >
                   {chosenSide !== '?' ? chosenSide : '?'}
                 </span>

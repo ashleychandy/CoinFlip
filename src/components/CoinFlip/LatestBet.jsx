@@ -17,10 +17,18 @@ import {
   faExclamationTriangle,
   faCheckCircle,
   faCircleNotch,
+  faHourglassHalf,
 } from '@fortawesome/free-solid-svg-icons';
 import { formatDistanceToNow } from 'date-fns';
 
 const LatestBet = ({ result: betResult, chosenNumber, betAmount }) => {
+  // Add this function to convert numbers to coin types
+  const renderCoinType = num => {
+    if (num === 1) return 'H';
+    if (num === 2) return 'T';
+    return '?';
+  };
+
   // Use the polling service to get bet history data and game status
   const {
     betHistory: allBets,
@@ -541,7 +549,9 @@ const LatestBet = ({ result: betResult, chosenNumber, betAmount }) => {
               className="h-8 w-8 bg-white rounded-full flex items-center justify-center border border-purple-100"
             >
               <span className="font-mono text-sm text-purple-600">
-                {chosenNumber || gameStatus?.chosenNumber || '?'}
+                {renderCoinType(
+                  chosenNumber || gameStatus?.chosenNumber || '?'
+                )}
               </span>
             </motion.div>
             <motion.div
@@ -675,7 +685,7 @@ const LatestBet = ({ result: betResult, chosenNumber, betAmount }) => {
         <div className="flex items-center space-x-4 mb-2">
           <div className="h-8 w-8 bg-white rounded-full flex items-center justify-center border border-gray-100 shadow-sm">
             <span className="text-base text-gray-700 font-mono">
-              {chosenNum}
+              {renderCoinType(chosenNum)}
             </span>
           </div>
 
@@ -690,7 +700,7 @@ const LatestBet = ({ result: betResult, chosenNumber, betAmount }) => {
             className={`h-8 w-8 bg-gradient-to-br ${colorScheme.bg} rounded-full flex items-center justify-center relative shadow-sm`}
           >
             <span className={`text-base ${colorScheme.text} font-mono`}>
-              {rolledNum}
+              {renderCoinType(rolledNum)}
             </span>
             {isWin && (
               <motion.div
@@ -742,14 +752,6 @@ const LatestBet = ({ result: betResult, chosenNumber, betAmount }) => {
       </motion.div>
     );
   }
-
-  // Add this function to convert numbers to coin types
-  const renderCoinType = num => {
-    // Convert number to coin type for display
-    if (num === 1) return 'Green Coin';
-    if (num === 2) return 'White Coin';
-    return 'Unknown';
-  };
 
   // No result to display, show empty state
   if (!displayResult) {
@@ -843,13 +845,13 @@ const LatestBet = ({ result: betResult, chosenNumber, betAmount }) => {
           </div>
           <div className="text-center">
             <div className="text-xs text-gray-500">Your Pick</div>
-            <div className="text-sm font-medium">
+            <div className="text-2xl font-bold">
               {renderCoinType(dataChosenNumber)}
             </div>
           </div>
           <div className="text-center">
             <div className="text-xs text-gray-500">Result</div>
-            <div className="text-sm font-medium">
+            <div className="text-2xl font-bold">
               {renderCoinType(resultValue)}
             </div>
           </div>
@@ -901,7 +903,12 @@ const LatestBet = ({ result: betResult, chosenNumber, betAmount }) => {
             <div className="flex space-x-2 text-xs text-gray-500">
               <div>Amount: {formatAmount(data.amount || BigInt(0))}</div>
               <div>•</div>
-              <div>Pick: {renderCoinType(data.chosenNumber)}</div>
+              <div>
+                Pick:{' '}
+                <span className="text-lg font-bold">
+                  {renderCoinType(data.chosenNumber)}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -954,19 +961,19 @@ const LatestBet = ({ result: betResult, chosenNumber, betAmount }) => {
       <div className="grid grid-cols-3 gap-2 my-2">
         <div className="text-center">
           <div className="text-xs text-gray-500">Amount</div>
-          <div className="text-sm font-medium">
+          <div className="text-base font-medium">
             {formatAmount(displayBetAmount)}
           </div>
         </div>
         <div className="text-center">
           <div className="text-xs text-gray-500">Your Pick</div>
-          <div className="text-sm font-medium">
+          <div className="text-2xl font-bold">
             {renderCoinType(displayChosenNumber)}
           </div>
         </div>
         <div className="text-center">
           <div className="text-xs text-gray-500">Result</div>
-          <div className="text-sm font-medium">
+          <div className="text-2xl font-bold">
             {renderCoinType(displayResultValue)}
           </div>
         </div>
