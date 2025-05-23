@@ -432,9 +432,7 @@ const GameHistory = ({ account, onError, hideHeading = false }) => {
             <h2 className="text-2xl font-bold text-secondary-800 mb-1">
               Game History
             </h2>
-            <p className="text-secondary-600">
-              Your recent CoinFlip game results
-            </p>
+            <p className="text-secondary-600">Your recent GAMA FLIP results</p>
           </div>
         )}
 
@@ -503,7 +501,7 @@ const GameHistory = ({ account, onError, hideHeading = false }) => {
               transition={{ delay: 0.1 }}
               className="text-secondary-600"
             >
-              Your recent CoinFlip game results
+              Your recent GAMA FLIP results
             </motion.p>
           </div>
 

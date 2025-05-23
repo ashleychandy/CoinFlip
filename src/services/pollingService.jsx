@@ -178,27 +178,30 @@ export const PollingProvider = ({
 
     const RESULT_FORCE_STOPPED = 254;
     const RESULT_RECOVERED = 255;
+    const HEADS = 1;
+    const TAILS = 2;
 
     const processedBets = bets
       .map(bet => {
         try {
-          const rolledNumber = Number(bet.rolledNumber);
+          const rolledNumber = Number(bet.flippedResult);
           let resultType = 'normal';
 
           if (rolledNumber === RESULT_FORCE_STOPPED)
             resultType = 'force_stopped';
           else if (rolledNumber === RESULT_RECOVERED) resultType = 'recovered';
-          else if (rolledNumber < 1 || rolledNumber > 6) resultType = 'unknown';
+          else if (rolledNumber !== HEADS && rolledNumber !== TAILS)
+            resultType = 'unknown';
 
           return {
             timestamp: Number(bet.timestamp),
-            chosenNumber: Number(bet.chosenNumber),
+            chosenNumber: Number(bet.chosenSide),
             rolledNumber,
             amount: bet.amount.toString(),
             payout: bet.payout.toString(),
             isWin:
               resultType === 'normal' &&
-              rolledNumber === Number(bet.chosenNumber),
+              rolledNumber === Number(bet.chosenSide),
             resultType,
             status:
               resultType === 'force_stopped'
@@ -206,7 +209,7 @@ export const PollingProvider = ({
                 : resultType === 'recovered'
                   ? 'Recovered'
                   : resultType === 'normal'
-                    ? rolledNumber === Number(bet.chosenNumber)
+                    ? rolledNumber === Number(bet.chosenSide)
                       ? 'Won'
                       : 'Lost'
                     : 'Unknown',

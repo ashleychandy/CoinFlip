@@ -1,6 +1,8 @@
 class GameService {
   constructor() {
     this.CoinFlipContract = null;
+    this.HEADS = 1;
+    this.TAILS = 2;
   }
 
   // Initialize game service with contracts
@@ -20,25 +22,26 @@ class GameService {
 
     // Validate that the contract has the necessary methods
     if (
-      !this.CoinFlipContract.playCoinFlip ||
-      typeof this.CoinFlipContract.playCoinFlip !== 'function'
+      !this.CoinFlipContract.flipCoin ||
+      typeof this.CoinFlipContract.flipCoin !== 'function'
     ) {
-      throw new Error('Invalid CoinFlip contract: missing playCoinFlip method');
+      throw new Error('Invalid CoinFlip contract: missing flipCoin method');
     }
 
     return this;
   }
 
   // Play CoinFlip game
-  async playCoinFlip(chosenNumber, amount) {
+  async playCoinFlip(chosenSide, amount) {
     if (!this.CoinFlipContract) {
       throw new Error('CoinFlip contract not initialized');
     }
 
-    if (!chosenNumber || chosenNumber < 1 || chosenNumber > 6) {
-      throw new Error(
-        'Invalid number selected. Choose a number between 1 and 6.'
-      );
+    if (
+      !chosenSide ||
+      (chosenSide !== this.HEADS && chosenSide !== this.TAILS)
+    ) {
+      throw new Error('Invalid side selected. Choose HEADS (1) or TAILS (2).');
     }
 
     if (!amount || amount <= 0) {
@@ -46,7 +49,7 @@ class GameService {
     }
 
     try {
-      const tx = await this.CoinFlipContract.playCoinFlip(chosenNumber, amount);
+      const tx = await this.CoinFlipContract.flipCoin(chosenSide, amount);
       const receipt = await tx.wait();
 
       return {
@@ -71,8 +74,8 @@ class GameService {
       return new Error('Transaction rejected by user');
     }
 
-    if (errorString.includes('Invalid chosen number')) {
-      return new Error('Please choose a number between 1 and 6');
+    if (errorString.includes('Invalid chosen side')) {
+      return new Error('Please choose HEADS (1) or TAILS (2)');
     }
 
     if (errorString.includes('Bet amount cannot be zero')) {

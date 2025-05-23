@@ -53,7 +53,7 @@ const WelcomeBanner = ({ onConnectClick }) => (
             />
           </div>
           <h2 className="text-3xl font-bold text-[#22AD74] bg-clip-text text-transparent bg-gradient-to-r from-[#22AD74] to-[#22AD74]/70">
-            Welcome to GAMA CoinFlip
+            Welcome to GAMA FLIP
           </h2>
         </div>
 
@@ -243,7 +243,7 @@ const CoinFlipPage = ({ contracts, account, onError, addToast }) => {
       >
         <div className="text-center">
           <h1 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gaming-primary to-gaming-primary-light mb-4">
-            CoinFlip Game
+            GAMA FLIP
           </h1>
           <p className="text-secondary-700 text-lg max-w-2xl mx-auto">
             Choose Heads or Tails, place your bet, and test your luck! Win up to
@@ -763,7 +763,7 @@ const CoinFlipPage = ({ contracts, account, onError, addToast }) => {
                       </h3>
                       <div className="space-y-3.5 text-gray-700">
                         <p>
-                          GAMA CoinFlip uses{' '}
+                          GAMA FLIP uses{' '}
                           <span className="font-medium">
                             Plugin&apos;s Verifiable Random Function (VRF)
                           </span>{' '}

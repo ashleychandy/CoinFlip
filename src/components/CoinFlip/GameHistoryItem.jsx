@@ -188,6 +188,13 @@ const getSpecialResultDescription = (resultType, payout) => {
   }
 };
 
+// Helper function to convert number to coin side
+const getCoinSide = number => {
+  if (number === 1) return 'HEADS';
+  if (number === 2) return 'TAILS';
+  return '?';
+};
+
 const GameHistoryItem = ({ game, index, compact = false }) => {
   const [expanded, setExpanded] = useState(false);
 
@@ -205,6 +212,10 @@ const GameHistoryItem = ({ game, index, compact = false }) => {
   const rolledNumber = Number(game.rolledNumber);
   const chosenNumber = Number(game.chosenNumber);
   const isSpecial = resultType === 'RECOVERED' || resultType === 'STOPPED';
+
+  // Get coin sides
+  const chosenSide = getCoinSide(chosenNumber);
+  const flippedSide = getCoinSide(rolledNumber);
 
   // Safe amount formatting
   const betAmount = formatEther(
@@ -253,7 +264,7 @@ const GameHistoryItem = ({ game, index, compact = false }) => {
           <div className="absolute -top-6 -right-6 w-16 h-16 rounded-full bg-white/20 blur-sm"></div>
           <div className="absolute -bottom-8 -left-8 w-20 h-20 rounded-full bg-white/30 blur-sm"></div>
 
-          {/* Header with status and chosen number */}
+          {/* Header with status and chosen side */}
           <div className="flex justify-between items-center mb-3 relative z-10">
             <div className="flex items-center gap-2">
               <div
@@ -265,9 +276,7 @@ const GameHistoryItem = ({ game, index, compact = false }) => {
                 />
               </div>
               <span className="text-xs font-medium text-secondary-700">
-                {chosenNumber >= 1 && chosenNumber <= 6
-                  ? `Chosen: ${chosenNumber}`
-                  : ''}
+                {chosenSide !== '?' ? `Chosen: ${chosenSide}` : ''}
               </span>
             </div>
             <div
@@ -289,7 +298,7 @@ const GameHistoryItem = ({ game, index, compact = false }) => {
             </div>
           </div>
 
-          {/* Rolled Number Display */}
+          {/* Result Display */}
           <div className="flex items-center justify-between flex-grow mb-3 relative z-10">
             {/* For pending bets, show loading animation */}
             {resultType === 'PENDING' ? (
@@ -390,11 +399,7 @@ const GameHistoryItem = ({ game, index, compact = false }) => {
                           : 'bg-secondary-200 text-secondary-800'
                     }`}
                 >
-                  <span className="text-2xl font-bold">
-                    {rolledNumber >= 1 && rolledNumber <= 6
-                      ? rolledNumber
-                      : '?'}
-                  </span>
+                  <span className="text-sm font-bold">{flippedSide}</span>
                 </motion.div>
                 {resultType === 'WIN' && (
                   <motion.div
@@ -404,41 +409,18 @@ const GameHistoryItem = ({ game, index, compact = false }) => {
                     className="flex flex-col items-start"
                   >
                     <div className="text-xs text-green-600 font-medium">
-                      Match!
+                      You Won!
                     </div>
-                    <div className="text-green-700 text-sm font-bold">
-                      Winner
+                    <div className="text-green-600 text-sm font-bold">
+                      +{formattedPayout} GAMA
                     </div>
                   </motion.div>
                 )}
               </div>
             )}
-
-            {(resultType === 'WIN' || isSpecial) && (
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{
-                  scale: 1,
-                  rotate: [0, isSpecial ? 0 : 10, 0, isSpecial ? 0 : -10, 0],
-                }}
-                transition={{
-                  scale: { delay: 0.1, duration: 0.4 },
-                  rotate: { delay: 0.4, duration: 0.6 },
-                }}
-                className={`${
-                  resultType === 'WIN'
-                    ? 'bg-green-600 text-white'
-                    : resultType === 'RECOVERED'
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-amber-600 text-white'
-                } text-xs font-bold px-2 py-1 rounded-lg shadow-sm flex items-center gap-1`}
-              >
-                <span>+{formattedPayout}</span>
-              </motion.div>
-            )}
           </div>
 
-          {/* Bottom bar with amount and date */}
+          {/* Footer with bet amount and time */}
           <div className="grid grid-cols-2 gap-2 mt-auto pt-2 border-t border-white/40 relative z-10">
             <div className="flex items-center gap-1.5 text-xs">
               <div
@@ -548,7 +530,7 @@ const GameHistoryItem = ({ game, index, compact = false }) => {
                           : 'bg-secondary-200 text-secondary-800'
                     }`}
                 >
-                  {rolledNumber >= 1 && rolledNumber <= 6 ? rolledNumber : '?'}
+                  {flippedSide}
                 </motion.div>
                 <div className="text-xs text-secondary-600 font-medium mt-1">
                   Rolled
@@ -562,7 +544,7 @@ const GameHistoryItem = ({ game, index, compact = false }) => {
                 <span
                   className={`${resultType === 'WIN' ? 'text-green-700 font-bold' : ''}`}
                 >
-                  {chosenNumber >= 1 && chosenNumber <= 6 ? chosenNumber : '?'}
+                  {chosenSide !== '?' ? chosenSide : '?'}
                 </span>
               </div>
               <div className="flex items-center gap-2 text-xs text-secondary-600">

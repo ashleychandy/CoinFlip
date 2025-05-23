@@ -49,7 +49,7 @@ export const API_CONFIG = {
 
 // App configuration
 export const APP_CONFIG = {
-  appName: 'XDC CoinFlip Game',
+  appName: 'XDC GAMA FLIP',
   appVersion: '1.0.0',
   contactEmail: 'support@xdcCoinFlip.com',
   social: {

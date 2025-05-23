@@ -306,13 +306,13 @@ const IntroScreen = ({ onComplete }) => {
                     className="text-4xl sm:text-5xl md:text-6xl font-bold text-[#22AD74] mb-4 md:mb-6"
                     variants={itemVariants}
                   >
-                    Welcome to GAMA CoinFlip
+                    Welcome to GAMA FLIP
                   </motion.h1>
                   <motion.p
                     className="text-lg sm:text-xl md:text-3xl text-gray-700 mb-6 md:mb-8"
                     variants={itemVariants}
                   >
-                    A revolutionary blockchain CoinFlip game with{' '}
+                    A revolutionary blockchain GAMA FLIP with{' '}
                     <span className="font-bold">zero house edge</span> and{' '}
                     <span className="font-bold">100% token burning</span>.
                   </motion.p>
@@ -493,7 +493,7 @@ const IntroScreen = ({ onComplete }) => {
                     </div>
                     <p className="text-gray-700 text-lg leading-relaxed">
                       Unlike traditional casinos that take a percentage, GAMA
-                      CoinFlip operates with{' '}
+                      FLIP operates with{' '}
                       <strong>absolutely no house edge</strong>. 100% of
                       potential winnings go back to players, giving you better
                       odds than any traditional casino.
@@ -619,7 +619,7 @@ const IntroScreen = ({ onComplete }) => {
                     variants={itemVariants}
                   >
                     Connect your wallet to start playing on the world's fairest
-                    blockchain CoinFlip game.
+                    blockchain GAMA FLIP.
                   </motion.p>
 
                   <motion.div
@@ -677,7 +677,7 @@ const IntroScreen = ({ onComplete }) => {
                       onClick={onComplete}
                       className="px-8 py-4 md:px-12 md:py-6 bg-gradient-to-r from-[#22AD74] to-[#26c582] text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 text-xl md:text-2xl font-medium flex items-center gap-3"
                     >
-                      Enter GAMA CoinFlip
+                      Enter GAMA FLIP
                       <FontAwesomeIcon icon={faArrowRight} />
                     </button>
                   </motion.div>

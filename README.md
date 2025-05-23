@@ -1,4 +1,4 @@
-# XDC CoinFlip Game
+# XDC GAMA FLIP
 
 A decentralized CoinFlip game running on the XDC blockchain.
 
