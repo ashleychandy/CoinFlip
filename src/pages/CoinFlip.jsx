@@ -734,9 +734,9 @@ const CoinFlipPage = ({ contracts, account, onError, addToast }) => {
                         <div className="pt-3 mt-1">
                           <p className="text-sm text-gray-600">
                             For each coin flip, you choose either Heads or
-                            Tails. When you win (the flip matches your
-                            chosen side), you receive 2x your bet amount, giving
-                            the game a true 0% house edge with fair odds.
+                            Tails. When you win (the flip matches your chosen
+                            side), you receive 2x your bet amount, giving the
+                            game a true 0% house edge with fair odds.
                           </p>
                           <p className="text-xs text-[#22AD74] italic mt-2">
                             Note: Blockchain transaction fees apply to all bets

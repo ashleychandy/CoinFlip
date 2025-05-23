@@ -166,59 +166,110 @@ const CoinFlipVisualizer = ({
 
     return (
       <motion.div
-        className="absolute inset-0 rounded-full flex items-center justify-center"
+        className="absolute inset-0 rounded-full flex items-center justify-center overflow-hidden"
         style={{
-          backgroundColor: isHeads ? '#22AD74' : '#f0f0f0',
-          boxShadow: `0 0 10px ${isHeads ? 'rgba(34, 173, 116, 0.4)' : 'rgba(0,0,0,0.2)'}`,
-          border: `4px solid ${isHeads ? '#1a8e5e' : '#dedede'}`,
+          background:
+            'linear-gradient(135deg, #4ade80 0%, #22c55e 80%, #16a34a 100%)',
+          boxShadow:
+            '0 8px 32px rgba(34, 197, 94, 0.25), inset 0 2px 4px rgba(255, 255, 255, 0.2), inset 0 -2px 4px rgba(0, 0, 0, 0.05)',
+          border: '4px solid #16a34a',
+          backfaceVisibility: 'hidden',
+          transformStyle: 'preserve-3d',
         }}
-        initial={{ rotateY: 180, opacity: 0 }}
+        initial={false}
         animate={{
           rotateY: 0,
           opacity: 1,
-          scale: [0.8, 1.05, 1],
+          scale: 1,
         }}
         transition={{
           type: 'spring',
-          stiffness: 150,
-          damping: 15,
+          stiffness: 80,
+          damping: 20,
         }}
       >
-        <div className="text-center">
+        {/* Matte overlay */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.1) 50%, rgba(0,0,0,0.03) 100%)',
+            borderRadius: '50%',
+          }}
+        />
+
+        {/* Letter H or T */}
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.2, duration: 0.4 }}
+          className="relative z-10"
+        >
           <div
-            className="text-2xl font-bold mb-1"
-            style={{ color: isHeads ? 'white' : '#555' }}
+            className="text-7xl font-bold"
+            style={{
+              color: 'rgba(255,255,255,0.95)',
+              textShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              letterSpacing: '0.05em',
+            }}
           >
-            {isHeads ? 'HEADS' : 'TAILS'}
+            {isHeads ? 'H' : 'T'}
           </div>
-          <div
-            className="text-sm"
-            style={{ color: isHeads ? 'rgba(255,255,255,0.8)' : '#777' }}
-          >
-            {isHeads ? '(1)' : '(2)'}
-          </div>
+        </motion.div>
+      </motion.div>
+    );
+  };
+
+  // Function to render both sides of the coin for smooth transition
+  const renderCoin = number => {
+    const safeSide = number >= 1 && number <= 2 ? number : 1;
+
+    return (
+      <motion.div
+        className="relative w-full h-full"
+        initial={false}
+        animate={{ rotateY: safeSide === 1 ? 0 : 180 }}
+        transition={{
+          type: 'spring',
+          stiffness: 50,
+          damping: 20,
+          mass: 1,
+        }}
+        style={{
+          transformStyle: 'preserve-3d',
+          perspective: '1000px',
+        }}
+      >
+        {/* Heads side */}
+        <div
+          className="absolute inset-0"
+          style={{ backfaceVisibility: 'hidden' }}
+        >
+          {renderCoinFace(1)}
+        </div>
+        {/* Tails side */}
+        <div
+          className="absolute inset-0"
+          style={{
+            backfaceVisibility: 'hidden',
+            transform: 'rotateY(180deg)',
+          }}
+        >
+          {renderCoinFace(2)}
         </div>
       </motion.div>
     );
   };
 
-  // Function to render the coin based on current state
-  const renderCoin = number => {
-    // Default to 1 for invalid numbers to prevent UI errors
-    const safeSide = number >= 1 && number <= 2 ? number : 1;
-
-    return renderCoinFace(safeSide);
-  };
-
-  // Rolling animation variants
+  // Rolling animation variants with improved physics
   const rollingVariants = {
     rolling: {
       rotateX: [0, 180, 360, 540, 720, 900, 1080],
-      scale: [1, 0.9, 1.05, 0.95, 1],
+      scale: [1, 0.95, 1.02, 0.98, 1],
       transition: {
-        duration: 3,
+        duration: 2.5,
         repeat: Infinity,
-        ease: 'easeInOut',
+        ease: [0.45, 0, 0.55, 1],
         repeatType: 'loop',
       },
     },
@@ -228,8 +279,9 @@ const CoinFlipVisualizer = ({
       transition: {
         type: 'spring',
         stiffness: 200,
-        damping: 20,
-        duration: 0.3,
+        damping: 25,
+        mass: 1,
+        duration: 0.5,
       },
     },
   };
@@ -252,7 +304,7 @@ const CoinFlipVisualizer = ({
     >
       {/* Main Coin */}
       <motion.div
-        className="relative w-40 h-40 rounded-full"
+        className="relative w-48 h-48 rounded-full"
         variants={rollingVariants}
         animate={shouldRollCoinFlip ? 'rolling' : 'static'}
         data-rolling={shouldRollCoinFlip ? 'true' : 'false'}
