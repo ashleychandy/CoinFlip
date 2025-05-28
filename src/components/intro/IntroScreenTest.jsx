@@ -6,7 +6,6 @@ const IntroScreenTest = () => {
 
   const handleComplete = () => {
     setShowIntro(false);
-    console.log('Intro completed');
   };
 
   const resetIntro = () => {

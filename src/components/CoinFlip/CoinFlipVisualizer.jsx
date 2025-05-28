@@ -25,29 +25,23 @@ const CoinFlipVisualizer = ({ chosenNumber, isRolling = false }) => {
 
   // Handle rolling state with cleanup and debounce
   useEffect(() => {
-    console.log('CoinFlipVisualizer - isRolling changed:', isRolling);
-    console.log('CoinFlipVisualizer - isWaitingForVRF:', isWaitingForVRF);
-
     let mounted = true;
     let timeoutId;
 
     const stopRolling = () => {
       if (mounted) {
-        console.log('CoinFlipVisualizer - Stopping coin roll animation');
         setShouldRollCoinFlip(false);
       }
     };
 
     // Start rolling if either the isRolling prop is true OR we're waiting for VRF
     if (isRolling || isWaitingForVRF) {
-      console.log('CoinFlipVisualizer - Starting coin roll animation');
       setShouldRollCoinFlip(true);
 
       // Only set timeout if we're rolling from a bet placement, not if waiting for VRF
       if (isRolling && !isWaitingForVRF) {
         // ALWAYS set a hard timeout to stop the rolling after exactly 20 seconds
         timeoutId = setTimeout(() => {
-          console.log('CoinFlipVisualizer - 20s timeout triggered');
           stopRolling();
         }, 20000); // 20 seconds max
       }

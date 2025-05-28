@@ -35,11 +35,16 @@ const CoinOption = ({ coinSide, selected, onClick, disabled }) => {
         font-medium text-sm
         transition-all duration-200
         border
-        ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}
         ${
-          selected
+          disabled
+            ? 'opacity-50 cursor-not-allowed bg-gray-100 border-gray-200 text-gray-400'
+            : 'cursor-pointer'
+        }
+        ${
+          !disabled && selected
             ? `bg-gradient-to-r ${colors.bg} ${colors.text} ${colors.border} shadow-lg ${colors.glow}`
-            : 'bg-white/80 text-gray-700 border-gray-200 hover:border-green-300 hover:bg-green-50/50'
+            : !disabled &&
+              'bg-white/80 text-gray-700 border-gray-200 hover:border-green-300 hover:bg-green-50/50'
         }
       `}
     >
@@ -51,12 +56,22 @@ const CoinOption = ({ coinSide, selected, onClick, disabled }) => {
       </div>
 
       {/* Subtle glow effect when selected */}
-      {selected && (
+      {selected && !disabled && (
         <motion.div
           className="absolute inset-0 rounded-lg bg-white"
           initial={{ opacity: 0 }}
           animate={{ opacity: [0.2, 0.3, 0.2] }}
           transition={{ duration: 2, repeat: Infinity }}
+        />
+      )}
+
+      {/* Processing indicator when disabled */}
+      {disabled && selected && (
+        <motion.div
+          className="absolute inset-0 rounded-lg bg-gray-400/10"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0.1, 0.2, 0.1] }}
+          transition={{ duration: 1.5, repeat: Infinity }}
         />
       )}
     </motion.button>

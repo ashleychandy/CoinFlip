@@ -466,7 +466,6 @@ export const reinitializeContractsForAccount = async (
 
     return Object.keys(newContracts).length > 0 ? newContracts : null;
   } catch (error) {
-    console.error('Error reinitializing contracts for new account:', error);
     return null;
   }
 };

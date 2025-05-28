@@ -567,12 +567,15 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
       return;
     }
 
+    // Set the operation flag immediately to prevent multiple clicks
     operationInProgress.current = true;
+
+    // Update UI state immediately to show processing
+    setProcessingState(true);
 
     try {
       await withBetting(async () => {
-        // Update UI state immediately
-        setProcessingState(true);
+        // Update UI state to show rolling animation
         setRollingState(true);
 
         // Clear any existing timeout
@@ -624,6 +627,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
               }
             } catch (balanceError) {
               handleContractError(balanceError, addToast);
+              clearTimeout();
               return;
             }
           }
@@ -648,17 +652,21 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
               txOptions
             );
             pendingTxRef.current = tx;
+
+            // Show pending notification
+            addToast({
+              title: 'Bet Placed',
+              description: 'Bet placed! Waiting for confirmation...',
+              type: 'info',
+            });
           } catch (txError) {
             handleContractError(txError, addToast);
+            clearTimeout();
+            operationInProgress.current = false;
+            setProcessingState(false);
+            setRollingState(false);
             return;
           }
-
-          // Show pending notification
-          addToast({
-            title: 'Bet Placed',
-            description: 'Bet placed! Waiting for confirmation...',
-            type: 'info',
-          });
 
           // Wait for transaction confirmation
           try {
@@ -674,41 +682,66 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
               isPending: true,
               vrfPending: true,
             });
+
+            // We're still processing because we're waiting for VRF callback
+            // Don't reset operationInProgress flag here
+
+            // Setup a polling mechanism to check for VRF result
+            const pollForVrfResult = async () => {
+              try {
+                // Check game status from contract
+                const gameStatus =
+                  await contracts.CoinFlip.getGameStatus(walletAccount);
+
+                // If the game is completed, reset processing state
+                if (!gameStatus.isActive || gameStatus.isCompleted) {
+                  operationInProgress.current = false;
+                  setProcessingState(false);
+                  setRollingState(false);
+                  clearTimeout();
+                  addToast({
+                    title: 'Game Completed',
+                    description: 'Your game has been completed!',
+                    type: 'success',
+                  });
+                  return;
+                }
+
+                // If still active and not completed, check again in a few seconds
+                coinFlipTimeoutRef.current = setTimeout(pollForVrfResult, 5000);
+              } catch (error) {
+                // In case of error, reset processing state to allow new bets
+                operationInProgress.current = false;
+                setProcessingState(false);
+                setRollingState(false);
+                clearTimeout();
+              }
+            };
+
+            // Start polling for VRF result
+            coinFlipTimeoutRef.current = setTimeout(pollForVrfResult, 5000);
           } catch (confirmError) {
             handleContractError(confirmError, addToast);
-          } finally {
-            // Clean up resources
             clearTimeout();
-            // Clear the coin flip animation timeout
-            if (coinFlipTimeoutRef.current) {
-              clearTimeout(coinFlipTimeoutRef.current);
-            }
-            pendingTxRef.current = null;
             operationInProgress.current = false;
-
-            // Reset processing state to allow new bets
             setProcessingState(false);
-
-            // Only reset rolling state if we don't have a VRF-pending result
-            // This allows VRF popups and latest bet info to continue displaying
-            const currentResult = queryClient.getQueryData(['lastResult']);
-            if (!currentResult || !currentResult.vrfPending) {
-              setRollingState(false);
-            }
+            setRollingState(false);
           }
         } catch (error) {
-          handleContractError(error, addToast);
-          // Clear the coin flip animation timeout on error
-          if (coinFlipTimeoutRef.current) {
-            clearTimeout(coinFlipTimeoutRef.current);
-          }
+          // Handle any other errors
+          handleError(error);
+          clearTimeout();
+          operationInProgress.current = false;
+          setProcessingState(false);
+          setRollingState(false);
         }
       });
     } catch (error) {
+      handleError(error);
+      // Reset operation flag if the overall try-catch fails
       operationInProgress.current = false;
       setProcessingState(false);
       setRollingState(false);
-      handleContractError(error, addToast);
     }
   }, [
     contracts,
@@ -717,13 +750,12 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     betAmount,
     balanceData,
     addToast,
-    queryClient,
-    isBetting,
+    invalidateQueries,
+    handleError,
     withBetting,
+    setLastResult,
     setProcessingState,
     setRollingState,
-    setLastResult,
-    invalidateQueries,
   ]);
 
   // Derived state from balance data

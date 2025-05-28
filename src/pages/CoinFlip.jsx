@@ -400,7 +400,11 @@ const CoinFlipPage = ({ contracts, account, onError, addToast }) => {
                         gameStatus?.isActive &&
                         !gameStatus?.isCompleted
                           ? 'Rolling Coin...'
-                          : 'Processing your bet...'}
+                          : gameState.isProcessing && gameState.lastResult
+                            ? 'Finalizing bet...'
+                            : isBetting
+                              ? 'Confirming transaction...'
+                              : 'Processing your bet...'}
                       </span>
                     </span>
                   ) : hasNoTokens ? (
@@ -436,10 +440,44 @@ const CoinFlipPage = ({ contracts, account, onError, addToast }) => {
                   )}
                 </motion.button>
 
+                {/* Processing Status Message */}
+                {(gameState.isProcessing ||
+                  gameState.isRolling ||
+                  isBetting) && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-3 p-3 rounded-lg bg-gray-50 border border-gray-200 text-sm text-center shadow-sm"
+                  >
+                    <div className="flex items-center justify-center gap-2 mb-1">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                      <span className="font-medium text-gray-800">
+                        {gameState.isRolling &&
+                        gameStatus?.isActive &&
+                        !gameStatus?.isCompleted
+                          ? 'Waiting for Random Number'
+                          : gameState.isProcessing && gameState.lastResult
+                            ? 'Finalizing Bet Result'
+                            : isBetting
+                              ? 'Confirming Transaction'
+                              : 'Processing Bet'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-600">
+                      {gameState.isRolling &&
+                      gameStatus?.isActive &&
+                      !gameStatus?.isCompleted
+                        ? 'Please wait while we get a secure random result from VRF...'
+                        : gameState.isProcessing && gameState.lastResult
+                          ? 'Your bet has been placed. Waiting for final confirmation...'
+                          : isBetting
+                            ? 'Please confirm the transaction in your wallet...'
+                            : 'Your bet is being processed. Please wait...'}
+                    </p>
+                  </motion.div>
+                )}
+
                 {/* VRF Recovery Button */}
-                {/* Note: This button can potentially be removed in a future update
-                    since we now have the global VRF notification in the Layout component
-                    with recovery functionality. Keeping it for now for backward compatibility. */}
                 {showVrfButton && (
                   <motion.button
                     whileHover={{ scale: 1.02 }}
