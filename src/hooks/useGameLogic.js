@@ -581,7 +581,6 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
           coinFlipTimeoutRef.current = null;
         }
 
-        
         // Setup safety timeout
         const clearTimeout = setupSafetyTimeout(
           safetyTimeoutRef,
@@ -786,7 +785,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
         clearTimeout(safetyTimeoutRef.current);
         safetyTimeoutRef.current = null;
       }
-      
+
       // Clean up coin flip timeout
       if (coinFlipTimeoutRef.current) {
         clearTimeout(coinFlipTimeoutRef.current);

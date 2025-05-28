@@ -17,9 +17,17 @@ const CoinFlipVisualizer = ({ chosenNumber, isRolling = false }) => {
   const { displayNumber } = useCoinFlipNumber(chosenNumber, isRolling);
   const [shouldRollCoinFlip, setShouldRollCoinFlip] = useState(false);
 
+  // Check if we're waiting for VRF results
+  const isWaitingForVRF =
+    gameStatus?.isActive &&
+    gameStatus?.requestExists &&
+    !gameStatus?.requestProcessed;
+
   // Handle rolling state with cleanup and debounce
   useEffect(() => {
     console.log('CoinFlipVisualizer - isRolling changed:', isRolling);
+    console.log('CoinFlipVisualizer - isWaitingForVRF:', isWaitingForVRF);
+
     let mounted = true;
     let timeoutId;
 
@@ -30,17 +38,21 @@ const CoinFlipVisualizer = ({ chosenNumber, isRolling = false }) => {
       }
     };
 
-    if (isRolling) {
+    // Start rolling if either the isRolling prop is true OR we're waiting for VRF
+    if (isRolling || isWaitingForVRF) {
       console.log('CoinFlipVisualizer - Starting coin roll animation');
       setShouldRollCoinFlip(true);
 
-      // ALWAYS set a hard timeout to stop the rolling after exactly 20 seconds
-      timeoutId = setTimeout(() => {
-        console.log('CoinFlipVisualizer - 20s timeout triggered');
-        stopRolling();
-      }, 20000); // 20 seconds max
+      // Only set timeout if we're rolling from a bet placement, not if waiting for VRF
+      if (isRolling && !isWaitingForVRF) {
+        // ALWAYS set a hard timeout to stop the rolling after exactly 20 seconds
+        timeoutId = setTimeout(() => {
+          console.log('CoinFlipVisualizer - 20s timeout triggered');
+          stopRolling();
+        }, 20000); // 20 seconds max
+      }
     } else {
-      // If isRolling is false, immediately stop the animation
+      // If not rolling and not waiting for VRF, stop the animation
       stopRolling();
     }
 
@@ -55,7 +67,7 @@ const CoinFlipVisualizer = ({ chosenNumber, isRolling = false }) => {
         clearTimeout(timeoutId);
       }
     };
-  }, [isRolling, gameStatus]);
+  }, [isRolling, gameStatus, isWaitingForVRF]);
 
   // Validate display number
   const validateDisplayNumber = useCallback(num => {
@@ -223,7 +235,7 @@ const CoinFlipVisualizer = ({ chosenNumber, isRolling = false }) => {
 
       {shouldRollCoinFlip && (
         <div className="mt-6 text-center text-sm text-secondary-600">
-          Flipping coin...
+          {isWaitingForVRF ? 'Waiting for VRF result...' : 'Flipping coin...'}
         </div>
       )}
     </div>
