@@ -19,21 +19,34 @@ const CoinFlipVisualizer = ({ chosenNumber, isRolling = false }) => {
 
   // Handle rolling state with cleanup and debounce
   useEffect(() => {
+    console.log('CoinFlipVisualizer - isRolling changed:', isRolling);
     let mounted = true;
     let timeoutId;
 
-    if (mounted) {
-      if (isRolling) {
-        setShouldRollCoinFlip(true);
-        // Set a timeout to stop the rolling after 20 seconds
-        timeoutId = setTimeout(() => {
-          if (mounted) {
-            setShouldRollCoinFlip(false);
-          }
-        }, 20000); // 20 seconds
-      } else if (gameStatus?.requestProcessed) {
+    const stopRolling = () => {
+      if (mounted) {
+        console.log('CoinFlipVisualizer - Stopping coin roll animation');
         setShouldRollCoinFlip(false);
       }
+    };
+
+    if (isRolling) {
+      console.log('CoinFlipVisualizer - Starting coin roll animation');
+      setShouldRollCoinFlip(true);
+
+      // ALWAYS set a hard timeout to stop the rolling after exactly 20 seconds
+      timeoutId = setTimeout(() => {
+        console.log('CoinFlipVisualizer - 20s timeout triggered');
+        stopRolling();
+      }, 20000); // 20 seconds max
+    } else {
+      // If isRolling is false, immediately stop the animation
+      stopRolling();
+    }
+
+    // Also stop rolling if game status shows request is processed
+    if (gameStatus?.requestProcessed) {
+      stopRolling();
     }
 
     return () => {
@@ -151,6 +164,7 @@ const CoinFlipVisualizer = ({ chosenNumber, isRolling = false }) => {
       style={{ perspective: '2000px' }}
     >
       <motion.div
+        key={shouldRollCoinFlip ? 'rolling' : 'static'}
         className="relative w-48 h-48 rounded-full"
         initial={{ rotateY: 0 }}
         animate={{
@@ -162,6 +176,7 @@ const CoinFlipVisualizer = ({ chosenNumber, isRolling = false }) => {
                 duration: 3,
                 ease: [0.45, 0, 0.55, 1],
                 repeat: Infinity,
+                repeatType: 'loop',
               }
             : {
                 type: 'spring',

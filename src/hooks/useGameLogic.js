@@ -152,6 +152,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
   const queryClient = useQueryClient();
   const operationInProgress = useRef(false);
   const safetyTimeoutRef = useRef(null);
+  const coinFlipTimeoutRef = useRef(null);
   const [isApproving, setIsApproving] = useState(false);
   const [isBetting, withBetting] = useLoadingState(false);
   const handleError = useErrorHandler(onError, addToast);
@@ -574,6 +575,13 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
         setProcessingState(true);
         setRollingState(true);
 
+        // Clear any existing timeout
+        if (coinFlipTimeoutRef.current) {
+          clearTimeout(coinFlipTimeoutRef.current);
+          coinFlipTimeoutRef.current = null;
+        }
+
+        
         // Setup safety timeout
         const clearTimeout = setupSafetyTimeout(
           safetyTimeoutRef,
@@ -669,23 +677,31 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
             });
           } catch (confirmError) {
             handleContractError(confirmError, addToast);
+          } finally {
+            // Clean up resources
+            clearTimeout();
+            // Clear the coin flip animation timeout
+            if (coinFlipTimeoutRef.current) {
+              clearTimeout(coinFlipTimeoutRef.current);
+            }
+            pendingTxRef.current = null;
+            operationInProgress.current = false;
+
+            // Reset processing state to allow new bets
+            setProcessingState(false);
+
+            // Only reset rolling state if we don't have a VRF-pending result
+            // This allows VRF popups and latest bet info to continue displaying
+            const currentResult = queryClient.getQueryData(['lastResult']);
+            if (!currentResult || !currentResult.vrfPending) {
+              setRollingState(false);
+            }
           }
         } catch (error) {
           handleContractError(error, addToast);
-        } finally {
-          // Clean up resources
-          clearTimeout();
-          pendingTxRef.current = null;
-          operationInProgress.current = false;
-
-          // Reset processing state to allow new bets
-          setProcessingState(false);
-
-          // Only reset rolling state if we don't have a VRF-pending result
-          // This allows VRF popups and latest bet info to continue displaying
-          const currentResult = queryClient.getQueryData(['lastResult']);
-          if (!currentResult || !currentResult.vrfPending) {
-            setRollingState(false);
+          // Clear the coin flip animation timeout on error
+          if (coinFlipTimeoutRef.current) {
+            clearTimeout(coinFlipTimeoutRef.current);
           }
         }
       });
@@ -769,6 +785,12 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
       if (safetyTimeoutRef.current) {
         clearTimeout(safetyTimeoutRef.current);
         safetyTimeoutRef.current = null;
+      }
+      
+      // Clean up coin flip timeout
+      if (coinFlipTimeoutRef.current) {
+        clearTimeout(coinFlipTimeoutRef.current);
+        coinFlipTimeoutRef.current = null;
       }
     };
   }, []);
