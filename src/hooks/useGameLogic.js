@@ -348,7 +348,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     setProcessingState(true);
 
     // Setup safety timeout to reset state if the operation takes too long
-    const clearTimeout = setupSafetyTimeout(safetyTimeoutRef, () => {
+    const clearSafetyTimeout = setupSafetyTimeout(safetyTimeoutRef, () => {
       operationInProgress.current = false;
       setIsApproving(false);
       setProcessingState(false);
@@ -452,7 +452,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
       }
     } finally {
       // Clean up resources and reset state
-      clearTimeout();
+      clearSafetyTimeout();
       operationInProgress.current = false;
       setIsApproving(false);
       setProcessingState(false);
@@ -585,7 +585,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
         }
 
         // Setup safety timeout
-        const clearTimeout = setupSafetyTimeout(
+        const clearSafetyTimeout = setupSafetyTimeout(
           safetyTimeoutRef,
           () => {
             operationInProgress.current = false;
@@ -627,7 +627,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
               }
             } catch (balanceError) {
               handleContractError(balanceError, addToast);
-              clearTimeout();
+              clearSafetyTimeout();
               return;
             }
           }
@@ -661,7 +661,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
             });
           } catch (txError) {
             handleContractError(txError, addToast);
-            clearTimeout();
+            clearSafetyTimeout();
             operationInProgress.current = false;
             setProcessingState(false);
             setRollingState(false);
@@ -698,7 +698,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
                   operationInProgress.current = false;
                   setProcessingState(false);
                   setRollingState(false);
-                  clearTimeout();
+                  clearSafetyTimeout();
                   addToast({
                     title: 'Game Completed',
                     description: 'Your game has been completed!',
@@ -714,7 +714,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
                 operationInProgress.current = false;
                 setProcessingState(false);
                 setRollingState(false);
-                clearTimeout();
+                clearSafetyTimeout();
               }
             };
 
@@ -722,7 +722,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
             coinFlipTimeoutRef.current = setTimeout(pollForVrfResult, 5000);
           } catch (confirmError) {
             handleContractError(confirmError, addToast);
-            clearTimeout();
+            clearSafetyTimeout();
             operationInProgress.current = false;
             setProcessingState(false);
             setRollingState(false);
@@ -730,7 +730,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
         } catch (error) {
           // Handle any other errors
           handleError(error);
-          clearTimeout();
+          clearSafetyTimeout();
           operationInProgress.current = false;
           setProcessingState(false);
           setRollingState(false);
