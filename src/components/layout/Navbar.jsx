@@ -4,13 +4,66 @@ import NetworkSwitcher from '../ui/NetworkSwitcher';
 import { useWallet } from '../wallet/WalletProvider';
 import { useNetwork } from '../../contexts/NetworkContext';
 
+// Define keyframes animation for the pulse effect
+const pulseAnimation = `
+  @keyframes pulse {
+    0% {
+      box-shadow: 0 0 0 0 rgba(34, 173, 116, 0.7);
+    }
+    70% {
+      box-shadow: 0 0 0 10px rgba(34, 173, 116, 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(34, 173, 116, 0);
+    }
+  }
+`;
+
+
 const Navbar = () => {
-  const { account, handleLogout, connectWallet } = useWallet();
-  const { currentNetwork } = useNetwork();
+  const { account, handleLogout, connectWallet, chainId } = useWallet();
+  const { currentNetwork, switchNetwork } = useNetwork();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isSwitching, setIsSwitching] = useState(false);
+  const [forceShowSwitchButton, setForceShowSwitchButton] = useState(false);
+
+  // Force the button to show by default if account exists
+  useEffect(() => {
+    if (account) {
+      // Always show the button initially, we'll hide it if we confirm we're on a supported network
+      setForceShowSwitchButton(true);
+
+      // After a short delay, check if we're actually on a supported network
+      const timer = setTimeout(() => {
+        if (chainId === 50 || chainId === 51) {
+          setForceShowSwitchButton(false);
+        }
+      }, 1000);
+
+      return () => clearTimeout(timer);
+    } else {
+      setForceShowSwitchButton(false);
+    }
+  }, [account, chainId]);
+
+  // Simplified check - either chainId is wrong or we're forcing the button
+  const isUnsupportedNetwork =
+    account &&
+    (forceShowSwitchButton || (chainId && chainId !== 50 && chainId !== 51));
+
+  // Add style tag with keyframes animation
+  useEffect(() => {
+    const styleEl = document.createElement('style');
+    styleEl.textContent = pulseAnimation;
+    document.head.appendChild(styleEl);
+    return () => {
+      document.head.removeChild(styleEl);
+    };
+  }, []);
+
 
   const handleConnectWallet = async () => {
     setIsConnecting(true);
@@ -20,6 +73,16 @@ const Navbar = () => {
       setIsConnecting(false);
     }
   };
+
+  const handleSwitchToXDC = async () => {
+    setIsSwitching(true);
+    try {
+      await switchNetwork('mainnet');
+    } finally {
+      setIsSwitching(false);
+    }
+  };
+
 
   // Handle clicks outside the dropdown to close it
   useEffect(() => {
@@ -151,7 +214,49 @@ const Navbar = () => {
           ></div>
 
           {account ? (
-            <div className="relative" ref={dropdownRef}>
+            isUnsupportedNetwork ? (
+              // Show "Switch To XDC" button when on unsupported network
+              <button
+                onClick={handleSwitchToXDC}
+                className={`px-6 py-2 rounded-lg ${
+                  isScrolled
+                    ? 'bg-[#22AD74] text-white'
+                    : 'bg-white text-[#22AD74] backdrop-blur-sm'
+                } border ${
+                  isScrolled ? 'border-[#22AD74]/20' : 'border-white/20'
+                } hover:bg-opacity-90 transition-all duration-300 flex items-center gap-2 animate-pulse`}
+                style={{
+                  animation: 'pulse 2s infinite',
+                  fontWeight: 'bold',
+                }}
+                disabled={isSwitching}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                  />
+                </svg>
+                {isSwitching ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Switching...
+                  </>
+                ) : (
+                  'Switch To XDC'
+                )}
+              </button>
+            ) : (
+              // Show account address and dropdown when on supported network
+              <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
                 className={`px-4 py-2 rounded-lg text-sm ${
@@ -252,7 +357,8 @@ const Navbar = () => {
                   </motion.div>
                 )}
               </AnimatePresence>
-            </div>
+                </div>
+            )
           ) : (
             <button
               onClick={handleConnectWallet}
