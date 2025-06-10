@@ -4,8 +4,9 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 
-contract GamaToken is ERC20, AccessControl, Pausable {
+contract GamaToken is ERC20, AccessControl, Pausable, ERC20Burnable {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 public constant SUB_ADMIN_ROLE = keccak256("SUB_ADMIN_ROLE");
@@ -55,7 +56,7 @@ contract GamaToken is ERC20, AccessControl, Pausable {
         _mint(to, amount);
     }
 
-    function _update(address from, address to, uint256 value) internal override {
+    function _update(address from, address to, uint256 value) internal override(ERC20) {
         require(!paused(), "Token transfer while paused");
         require(!isBlacklisted[from], "Sender is blacklisted");
         require(!isBlacklisted[to], "Recipient is blacklisted");
@@ -69,21 +70,15 @@ contract GamaToken is ERC20, AccessControl, Pausable {
         return super.approve(spender, amount);
     }
 
-    function controlledBurn(uint256 amount) public whenNotPaused onlyRole(BURNER_ROLE) {
-        require(!isBlacklisted[msg.sender], "Caller is blacklisted");
-        _burn(msg.sender, amount);
+    function burn(uint256 amount) public override whenNotPaused {
+        super.burn(amount);
+        require(_totalMinted >= amount, "Burn exceeds minted total");
         _totalMinted -= amount;
     }
 
-    function controlledBurnFrom(address account, uint256 amount) public whenNotPaused onlyRole(BURNER_ROLE) {
-        require(!isBlacklisted[msg.sender], "Caller is blacklisted");
-        require(!isBlacklisted[account], "Account is blacklisted");
-
-        uint256 currentAllowance = allowance(account, msg.sender);
-        require(currentAllowance >= amount, "ERC20: burn amount exceeds allowance");
-        _approve(account, msg.sender, currentAllowance - amount);
-
-        _burn(account, amount);
+    function burnFrom(address account, uint256 amount) public override whenNotPaused {
+        super.burnFrom(account, amount);
+        require(_totalMinted >= amount, "Burn exceeds minted total");
         _totalMinted -= amount;
     }
 
@@ -93,7 +88,6 @@ contract GamaToken is ERC20, AccessControl, Pausable {
     }
 
     function setSubAdminLimit(address subAdmin, uint256 limit) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(limit >= subAdminMinted[subAdmin], "New limit cannot be less than already minted");
         subAdminMintLimit[subAdmin] = limit;
         emit SubAdminLimitUpdated(subAdmin, limit);
     }

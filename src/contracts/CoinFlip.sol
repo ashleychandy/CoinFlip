@@ -26,8 +26,8 @@ interface IERC20 {
     function revokeRole(bytes32 role, address account) external;
     function renounceRole(bytes32 role, address callerConfirmation) external;
     function mint(address account, uint256 amount) external;
-    function controlledBurn(uint256 amount) external;
-    function controlledBurnFrom(address account, uint256 amount) external;
+    function burn(uint256 amount) external;
+    function burnFrom(address account, uint256 amount) external;
     function getRemainingMintable() external view returns (uint256);
 }
 
@@ -207,7 +207,7 @@ contract CoinFlip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
 
         // ===== EFFECTS =====
         // 5. Burn tokens first
-        gamaToken.controlledBurnFrom(msg.sender, amount);
+        gamaToken.burnFrom(msg.sender, amount);
 
         // Update total wagered amount
         totalWageredAmount += amount;
