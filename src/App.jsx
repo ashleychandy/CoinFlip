@@ -42,6 +42,16 @@ function App() {
     },
   });
 
+  useEffect(() => {
+    if (hasSeenIntro) {
+      // Reset overflow styles to ensure scrolling works after intro
+      document.body.style.overflow = 'auto';
+      document.documentElement.style.overflow = 'auto';
+      document.body.style.height = 'auto';
+      document.documentElement.style.height = 'auto';
+    }
+  }, [hasSeenIntro]);
+
   // Don't render anything until we've checked localStorage
   if (isLoading) {
     return null;

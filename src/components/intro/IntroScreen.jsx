@@ -818,10 +818,24 @@ const IntroScreen = ({ onComplete }) => {
 
   // Prevent scrolling on component mount
   useEffect(() => {
-    const originalStyle = window.getComputedStyle(document.body).overflow;
+    // Set overflow to hidden to prevent scrolling while intro is shown
     document.body.style.overflow = 'hidden';
+
+    // Cleanup function to restore original style when component unmounts
     return () => {
-      document.body.style.overflow = originalStyle;
+      document.body.style.overflow = 'auto';
+    };
+  }, []);
+
+  // Additional effect to ensure overflow is reset when user completes intro
+  useEffect(() => {
+    // This will run when the component is about to unmount
+    return () => {
+      // Force the overflow to be visible when the intro screen is closed
+      document.body.style.overflow = 'auto';
+      document.documentElement.style.overflow = 'auto';
+      document.body.style.height = 'auto';
+      document.documentElement.style.height = 'auto';
     };
   }, []);
 
@@ -1264,7 +1278,7 @@ const IntroScreen = ({ onComplete }) => {
                     icon: faExchangeAlt,
                     title: 'True Win Probability',
                     description:
-                      'Your actual chances of winning match the mathematical probability (1/6)',
+                      'Your actual chances of winning match the mathematical probability',
                   },
                 ].map((item, index) => (
                   <motion.div
