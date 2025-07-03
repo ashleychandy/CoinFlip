@@ -1,86 +1,60 @@
-# XDC GAMA FLIP
+# GAMA Flip
 
-A decentralized Flip game running on the XDC blockchain.
+A blockchain-based coin flip game running on the XDC network.
 
-## Project Structure
-
-```
-src/
-├── assets/           # Static assets like images, fonts, etc.
-├── components/       # React components
-│   ├── Flip/         # Flip game specific components
-│   ├── error/        # Error handling components
-│   ├── layout/       # Layout components
-│   ├── routes/       # Routing components
-│   ├── ui/           # Generic UI components
-│   └── wallet/       # Wallet connection components
-├── config/           # Application configuration
-├── constants/        # Constants and enums
-├── contexts/         # React contexts
-├── contracts/        # Smart contract ABIs and interfaces
-│   └── abi/          # Contract ABIs
-├── hooks/            # Custom React hooks
-├── pages/            # Page components
-├── services/         # Application services
-└── utils/            # Utility functions
-```
-
-## Recent Improvements
-
-- **Code Organization**: Implemented a more modular structure with custom hooks
-- **Error Handling**: Added comprehensive error handling with ErrorBoundary
-- **Performance**: Added code splitting, React Query optimizations, and bundle chunking
-- **Configuration**: Centralized configuration management
-- **Development Tools**: Added ESLint, Prettier, and bundle analysis
-
-## Getting Started
-
-1. Install dependencies:
+## Quick Start
 
 ```bash
+# Install dependencies
 npm install
-```
 
-2. Set up environment variables (see Environment Variables section)
-
-3. Run development server:
-
-```bash
+# Start development server
 npm run dev
-```
 
-4. Build for production:
-
-```bash
+# Build for production
 npm run build
+
+# Preview production build
+npm run preview
 ```
 
-## Available Scripts
+The production build will create a `dist` directory with optimized files ready for deployment. This includes minified JavaScript bundles, compressed assets, and an index.html file.
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
-- `npm run lint` - Run ESLint
-- `npm run lint:fix` - Fix ESLint issues
-- `npm run format` - Format code with Prettier
-- `npm run analyze` - Analyze bundle size
+## Features
+
+- Decentralized coin flip game on XDC blockchain
+- Real-time game statistics and history
+- Responsive design with Tailwind CSS
+- Interactive animations with Framer Motion
 
 ## Environment Variables
 
-Create a `.env` file with the following variables:
+Create a `.env` file in the root directory with these variables:
 
 ```
-# RPC endpoints
-VITE_XDC_MAINNET_RPC=https://rpc.xinfin.network
-VITE_XDC_APOTHEM_RPC=https://rpc.apothem.network
+# XDC Mainnet
+VITE_TOKEN_ADDRESS=<mainnet-token-contract-address>
+VITE_Flip_ADDRESS=<mainnet-flip-contract-address>
+VITE_XDC_MAINNET_RPC=https://erpc.xinfin.network
 
-# Contract addresses - REQUIRED for the application to function properly
-VITE_TOKEN_ADDRESS=your_mainnet_token_address
-VITE_Flip_ADDRESS=your_mainnet_Flip_address
-VITE_APOTHEM_TOKEN_ADDRESS=your_testnet_token_address
-VITE_APOTHEM_Flip_ADDRESS=your_testnet_Flip_address
+# XDC Testnet (Apothem)
+VITE_APOTHEM_TOKEN_ADDRESS=<testnet-token-contract-address>
+VITE_APOTHEM_Flip_ADDRESS=<testnet-flip-contract-address>
+VITE_XDC_APOTHEM_RPC=https://erpc.apothem.network
+```
 
+## Development
 
+```bash
+# Run linting
+npm run lint
 
-> **IMPORTANT**: The application will not function correctly without properly configured contract addresses. Make sure to deploy the contracts and update the environment variables with the actual contract addresses before using the application.
+# Fix linting issues
+npm run lint:fix
+
+# Format code
+npm run format
+
+# Analyze bundle
+npm run analyze
 ```
