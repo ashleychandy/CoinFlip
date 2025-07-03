@@ -1266,7 +1266,7 @@ const IntroScreen = ({ onComplete }) => {
                     icon: faCoins,
                     title: 'Maximum Player Returns',
                     description:
-                      'The full 6X payout on winning bets goes directly to the player with no deductions',
+                      'The full payout on winning bets goes directly to the player with no deductions',
                   },
                   {
                     icon: faBolt,

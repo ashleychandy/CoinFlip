@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
 import { useWallet } from '../components/wallet/WalletProvider';
 import { ethers } from 'ethers';
 import { useNetwork } from '../contexts/NetworkContext';
-import CoinFlipABI from '../contracts/abi/CoinFlip.json';
+import FlipABI from '../contracts/abi/Flip.json';
 import TokenABI from '../contracts/abi/GamaToken.json';
 
-export const useCoinFlipContract = () => {
+export const useFlipContract = () => {
   const { provider, account } = useWallet();
   const { currentNetwork } = useNetwork();
   const [contract, setContract] = useState(null);
@@ -25,15 +25,15 @@ export const useCoinFlipContract = () => {
         }
 
         // Handle both address structures
-        const CoinFlipAddress =
-          currentNetwork.contracts?.CoinFlip || currentNetwork.CoinFlipAddress;
+        const FlipAddress =
+          currentNetwork.contracts?.Flip || currentNetwork.FlipAddress;
         const tokenAddress =
           currentNetwork.contracts?.token || currentNetwork.tokenAddress;
 
-        if (!CoinFlipAddress) {
+        if (!FlipAddress) {
           setError(
             new Error(
-              `CoinFlip contract address not configured for network: ${currentNetwork.name}`
+              `Flip contract address not configured for network: ${currentNetwork.name}`
             )
           );
           setContract(null);
@@ -51,18 +51,18 @@ export const useCoinFlipContract = () => {
           ? await provider.getSigner()
           : provider;
 
-        // Initialize CoinFlip contract
+        // Initialize Flip contract
         try {
-          const CoinFlipContract = new ethers.Contract(
-            CoinFlipAddress,
-            CoinFlipABI.abi,
+          const FlipContract = new ethers.Contract(
+            FlipAddress,
+            FlipABI.abi,
             signer
           );
-          setContract(CoinFlipContract);
-        } catch (CoinFlipError) {
+          setContract(FlipContract);
+        } catch (FlipError) {
           setError(
             new Error(
-              `CoinFlip contract initialization failed: ${CoinFlipError.message}`
+              `Flip contract initialization failed: ${FlipError.message}`
             )
           );
           setContract(null);

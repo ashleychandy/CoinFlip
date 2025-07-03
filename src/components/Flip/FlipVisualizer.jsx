@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import React, { useState, useEffect, useCallback } from 'react';
-import { useCoinFlipNumber } from '../../hooks/useCoinFlipNumber';
+import { useFlipNumber } from '../../hooks/useFlipNumber';
 import { usePollingService } from '../../services/pollingService';
 
 const COIN_SIDES = {
@@ -9,13 +9,13 @@ const COIN_SIDES = {
 };
 
 /**
- * Simplified CoinFlip Visualizer Component focused only on CoinFlip display
+ * Simplified Flip Visualizer Component focused only on Flip display
  */
-const CoinFlipVisualizer = ({ chosenNumber, isRolling = false }) => {
+const FlipVisualizer = ({ chosenNumber, isRolling = false }) => {
   const [error, setError] = useState({ hasError: false, message: '' });
   const { gameStatus } = usePollingService();
-  const { displayNumber } = useCoinFlipNumber(chosenNumber, isRolling);
-  const [shouldRollCoinFlip, setShouldRollCoinFlip] = useState(false);
+  const { displayNumber } = useFlipNumber(chosenNumber, isRolling);
+  const [shouldRollFlip, setShouldRollFlip] = useState(false);
 
   // Check if we're waiting for VRF results
   const isWaitingForVRF =
@@ -30,13 +30,13 @@ const CoinFlipVisualizer = ({ chosenNumber, isRolling = false }) => {
 
     const stopRolling = () => {
       if (mounted) {
-        setShouldRollCoinFlip(false);
+        setShouldRollFlip(false);
       }
     };
 
     // Start rolling if either the isRolling prop is true OR we're waiting for VRF
     if (isRolling || isWaitingForVRF) {
-      setShouldRollCoinFlip(true);
+      setShouldRollFlip(true);
 
       // Only set timeout if we're rolling from a bet placement, not if waiting for VRF
       if (isRolling && !isWaitingForVRF) {
@@ -170,14 +170,14 @@ const CoinFlipVisualizer = ({ chosenNumber, isRolling = false }) => {
       style={{ perspective: '2000px' }}
     >
       <motion.div
-        key={shouldRollCoinFlip ? 'rolling' : 'static'}
+        key={shouldRollFlip ? 'rolling' : 'static'}
         className="relative w-48 h-48 rounded-full"
         initial={{ rotateY: 0 }}
         animate={{
-          rotateY: shouldRollCoinFlip ? [0, 360, 720, 1080] : targetRotation,
+          rotateY: shouldRollFlip ? [0, 360, 720, 1080] : targetRotation,
         }}
         transition={
-          shouldRollCoinFlip
+          shouldRollFlip
             ? {
                 duration: 3,
                 ease: [0.45, 0, 0.55, 1],
@@ -227,7 +227,7 @@ const CoinFlipVisualizer = ({ chosenNumber, isRolling = false }) => {
         </div>
       </motion.div>
 
-      {shouldRollCoinFlip && (
+      {shouldRollFlip && (
         <div className="mt-6 text-center text-sm text-secondary-600">
           {isWaitingForVRF ? 'Waiting for VRF result...' : 'Flipping coin...'}
         </div>
@@ -236,4 +236,4 @@ const CoinFlipVisualizer = ({ chosenNumber, isRolling = false }) => {
   );
 };
 
-export default CoinFlipVisualizer;
+export default FlipVisualizer;

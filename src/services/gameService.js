@@ -1,6 +1,6 @@
 class GameService {
   constructor() {
-    this.CoinFlipContract = null;
+    this.FlipContract = null;
     this.HEADS = 1;
     this.TAILS = 2;
   }
@@ -12,29 +12,29 @@ class GameService {
     }
 
     // Handle different contract formats
-    if (contracts.CoinFlip) {
-      this.CoinFlipContract = contracts.CoinFlip;
-    } else if (contracts.CoinFlipContract) {
-      this.CoinFlipContract = contracts.CoinFlipContract;
+    if (contracts.Flip) {
+      this.FlipContract = contracts.Flip;
+    } else if (contracts.FlipContract) {
+      this.FlipContract = contracts.FlipContract;
     } else {
-      throw new Error('CoinFlip contract not provided');
+      throw new Error('Flip contract not provided');
     }
 
     // Validate that the contract has the necessary methods
     if (
-      !this.CoinFlipContract.flipCoin ||
-      typeof this.CoinFlipContract.flipCoin !== 'function'
+      !this.FlipContract.flipCoin ||
+      typeof this.FlipContract.flipCoin !== 'function'
     ) {
-      throw new Error('Invalid CoinFlip contract: missing flipCoin method');
+      throw new Error('Invalid Flip contract: missing flipCoin method');
     }
 
     return this;
   }
 
-  // Play CoinFlip game
-  async playCoinFlip(chosenSide, amount) {
-    if (!this.CoinFlipContract) {
-      throw new Error('CoinFlip contract not initialized');
+  // Play Flip game
+  async playFlip(chosenSide, amount) {
+    if (!this.FlipContract) {
+      throw new Error('Flip contract not initialized');
     }
 
     if (
@@ -49,7 +49,7 @@ class GameService {
     }
 
     try {
-      const tx = await this.CoinFlipContract.flipCoin(chosenSide, amount);
+      const tx = await this.FlipContract.flipCoin(chosenSide, amount);
       const receipt = await tx.wait();
 
       return {

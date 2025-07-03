@@ -13,7 +13,7 @@ export const NETWORK_CONFIG = {
     contracts: {
       // Use environment variables for contract addresses
       token: import.meta.env.VITE_TOKEN_ADDRESS || '',
-      CoinFlip: import.meta.env.VITE_CoinFlip_ADDRESS || '',
+      Flip: import.meta.env.VITE_Flip_ADDRESS || '',
     },
     explorer: 'https://xdcscan.com/',
   },
@@ -25,7 +25,7 @@ export const NETWORK_CONFIG = {
     contracts: {
       // Use environment variables for contract addresses
       token: import.meta.env.VITE_APOTHEM_TOKEN_ADDRESS || '',
-      CoinFlip: import.meta.env.VITE_APOTHEM_CoinFlip_ADDRESS || '',
+      Flip: import.meta.env.VITE_APOTHEM_Flip_ADDRESS || '',
     },
     explorer: 'https://testnet.xdcscan.com/',
   },

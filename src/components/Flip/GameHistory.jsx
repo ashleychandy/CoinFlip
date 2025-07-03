@@ -13,7 +13,7 @@ import {
   faPlayCircle,
 } from '@fortawesome/free-solid-svg-icons';
 import { useBetHistory } from '../../hooks/useBetHistory';
-import { useCoinFlipContract } from '../../hooks/useCoinFlipContract';
+import { useFlipContract } from '../../hooks/useFlipContract';
 import { useWallet } from '../wallet/WalletProvider';
 import EmptyState from './EmptyState';
 import GameHistoryItem from './GameHistoryItem';
@@ -192,8 +192,8 @@ const WelcomeNewUser = () => (
 
 const GameHistory = ({ account, onError, hideHeading = false }) => {
   const [filter, setFilter] = useState('all');
-  const { contract: CoinFlipContract, isLoading: isContractLoading } =
-    useCoinFlipContract();
+  const { contract: FlipContract, isLoading: isContractLoading } =
+    useFlipContract();
   const { isWalletConnected } = useWallet();
 
   // Get isNewUser state from polling service
@@ -216,7 +216,7 @@ const GameHistory = ({ account, onError, hideHeading = false }) => {
     playerAddress: account,
     pageSize: 12,
     autoRefresh: true,
-    CoinFlipContract,
+    FlipContract,
   });
 
   // Handle any errors
@@ -319,15 +319,13 @@ const GameHistory = ({ account, onError, hideHeading = false }) => {
 
   // Check if contract is available and has the necessary methods
   const contractHasRequiredMethods = useMemo(() => {
-    if (!CoinFlipContract) return false;
+    if (!FlipContract) return false;
 
-    const _hasGetGameStatus =
-      typeof CoinFlipContract.getGameStatus === 'function';
-    const hasGetBetHistory =
-      typeof CoinFlipContract.getBetHistory === 'function';
+    const _hasGetGameStatus = typeof FlipContract.getGameStatus === 'function';
+    const hasGetBetHistory = typeof FlipContract.getBetHistory === 'function';
 
     return hasGetBetHistory;
-  }, [CoinFlipContract]);
+  }, [FlipContract]);
 
   // We no longer use sample data
   const _shouldUseSampleData = useMemo(() => {
@@ -404,10 +402,10 @@ const GameHistory = ({ account, onError, hideHeading = false }) => {
     return <GameHistoryLoader />;
   }
 
-  if (!CoinFlipContract) {
+  if (!FlipContract) {
     return (
       <GameHistoryError
-        error={new Error('CoinFlip contract not initialized')}
+        error={new Error('Flip contract not initialized')}
         resetError={forceRefresh}
       />
     );

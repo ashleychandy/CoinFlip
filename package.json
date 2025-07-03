@@ -1,5 +1,5 @@
 {
-  "name": "CoinFlip-page",
+  "name": "Flip-page",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
@@ -14,7 +14,7 @@
   "keywords": [
     "blockchain",
     "dapp",
-    "CoinFlip",
+    "Flip",
     "xdc",
     "ethereum"
   ],
@@ -57,5 +57,5 @@
     "vite": "^6.0.7",
     "vite-plugin-eslint": "^1.8.1"
   },
-  "description": "A decentralized CoinFlip game running on the XDC blockchain"
+  "description": "A decentralized Flip game running on the XDC blockchain"
 }

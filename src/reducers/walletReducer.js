@@ -1,6 +1,6 @@
 export const initialWalletState = {
   provider: null,
-  contracts: { token: null, CoinFlip: null },
+  contracts: { token: null, Flip: null },
   account: '',
   chainId: null,
   loadingStates: {
