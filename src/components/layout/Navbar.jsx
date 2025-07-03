@@ -19,7 +19,6 @@ const pulseAnimation = `
   }
 `;
 
-
 const Navbar = () => {
   const { account, handleLogout, connectWallet, chainId } = useWallet();
   const { currentNetwork, switchNetwork } = useNetwork();
@@ -64,7 +63,6 @@ const Navbar = () => {
     };
   }, []);
 
-
   const handleConnectWallet = async () => {
     setIsConnecting(true);
     try {
@@ -82,7 +80,6 @@ const Navbar = () => {
       setIsSwitching(false);
     }
   };
-
 
   // Handle clicks outside the dropdown to close it
   useEffect(() => {
@@ -119,8 +116,8 @@ const Navbar = () => {
   }, []);
 
   const navbarClasses = isScrolled
-    ? 'px-6 border-b border-[#22AD74]/20 bg-white sticky top-0 z-50 shadow-md w-full transition-all duration-300'
-    : 'px-6 sticky top-0 z-50 w-full bg-transparent transition-all duration-300';
+    ? 'px-6 border-b border-[#22AD74]/20 bg-white fixed top-0 left-0 z-50 shadow-md w-full transition-all duration-300'
+    : 'px-6 fixed top-0 left-0 z-50 w-full bg-transparent transition-all duration-300';
 
   return (
     <header className={navbarClasses}>
@@ -257,107 +254,107 @@ const Navbar = () => {
             ) : (
               // Show account address and dropdown when on supported network
               <div className="relative" ref={dropdownRef}>
-              <button
-                onClick={() => setDropdownOpen(!dropdownOpen)}
-                className={`px-4 py-2 rounded-lg text-sm ${
-                  isScrolled
-                    ? 'bg-[#22AD74]/5 border border-[#22AD74]/20'
-                    : 'bg-[#22AD74]/20 backdrop-blur-sm border border-white/20'
-                } hover:bg-[#22AD74]/10 transition-all duration-300 flex items-center gap-2`}
-              >
-                <span
-                  className={`font-medium ${isScrolled ? 'text-gray-900' : 'text-gray-900'}`}
+                <button
+                  onClick={() => setDropdownOpen(!dropdownOpen)}
+                  className={`px-4 py-2 rounded-lg text-sm ${
+                    isScrolled
+                      ? 'bg-[#22AD74]/5 border border-[#22AD74]/20'
+                      : 'bg-[#22AD74]/20 backdrop-blur-sm border border-white/20'
+                  } hover:bg-[#22AD74]/10 transition-all duration-300 flex items-center gap-2`}
                 >
-                  {account.slice(0, 6)}
-                  <span className="opacity-50 mx-0.5">|</span>
-                  {account.slice(-4)}
-                </span>
-                <svg
-                  className={`w-4 h-4 ${
-                    isScrolled ? 'text-gray-600' : 'text-gray-600'
-                  } transition-transform duration-300 ease-in-out ${
-                    dropdownOpen ? 'rotate-180' : ''
-                  }`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </button>
-
-              {/* Enhanced Modern Dropdown Menu */}
-              <AnimatePresence>
-                {dropdownOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -5, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -5, scale: 0.98 }}
-                    transition={{ duration: 0.2, ease: 'easeOut' }}
-                    className="absolute right-0 mt-2 w-64 rounded-xl bg-white backdrop-blur-md shadow-xl shadow-[#22AD74]/5 border border-[#22AD74]/10 overflow-hidden z-50"
+                  <span
+                    className={`font-medium ${isScrolled ? 'text-gray-900' : 'text-gray-900'}`}
                   >
-                    {/* Account Info Section */}
-                    <div className="p-4 bg-gradient-to-r from-[#22AD74]/5 to-transparent">
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="text-xs text-[#22AD74] font-medium tracking-wide uppercase">
-                          Account
+                    {account.slice(0, 6)}
+                    <span className="opacity-50 mx-0.5">|</span>
+                    {account.slice(-4)}
+                  </span>
+                  <svg
+                    className={`w-4 h-4 ${
+                      isScrolled ? 'text-gray-600' : 'text-gray-600'
+                    } transition-transform duration-300 ease-in-out ${
+                      dropdownOpen ? 'rotate-180' : ''
+                    }`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </button>
+
+                {/* Enhanced Modern Dropdown Menu */}
+                <AnimatePresence>
+                  {dropdownOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -5, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -5, scale: 0.98 }}
+                      transition={{ duration: 0.2, ease: 'easeOut' }}
+                      className="absolute right-0 mt-2 w-64 rounded-xl bg-white backdrop-blur-md shadow-xl shadow-[#22AD74]/5 border border-[#22AD74]/10 overflow-hidden z-50"
+                    >
+                      {/* Account Info Section */}
+                      <div className="p-4 bg-gradient-to-r from-[#22AD74]/5 to-transparent">
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="text-xs text-[#22AD74] font-medium tracking-wide uppercase">
+                            Account
+                          </div>
+                          <div className="px-2 py-0.5 bg-[#22AD74]/10 rounded-full text-xs text-[#22AD74] font-medium">
+                            Connected
+                          </div>
                         </div>
-                        <div className="px-2 py-0.5 bg-[#22AD74]/10 rounded-full text-xs text-[#22AD74] font-medium">
-                          Connected
+                        <div className="text-sm font-mono text-gray-600 break-all">
+                          {account}
                         </div>
                       </div>
-                      <div className="text-sm font-mono text-gray-600 break-all">
-                        {account}
+
+                      {/* Network Section with no border, instead a subtle divider */}
+                      <div className="mx-4 h-px bg-gradient-to-r from-transparent via-[#22AD74]/10 to-transparent"></div>
+
+                      <div className="p-4">
+                        <div className="text-xs text-[#22AD74] mb-2 font-medium tracking-wide uppercase">
+                          Network
+                        </div>
+                        <NetworkSwitcher isInDropdown={true} />
                       </div>
-                    </div>
 
-                    {/* Network Section with no border, instead a subtle divider */}
-                    <div className="mx-4 h-px bg-gradient-to-r from-transparent via-[#22AD74]/10 to-transparent"></div>
+                      {/* Subtle divider instead of border */}
+                      <div className="mx-4 h-px bg-gradient-to-r from-transparent via-[#22AD74]/10 to-transparent"></div>
 
-                    <div className="p-4">
-                      <div className="text-xs text-[#22AD74] mb-2 font-medium tracking-wide uppercase">
-                        Network
-                      </div>
-                      <NetworkSwitcher isInDropdown={true} />
-                    </div>
-
-                    {/* Subtle divider instead of border */}
-                    <div className="mx-4 h-px bg-gradient-to-r from-transparent via-[#22AD74]/10 to-transparent"></div>
-
-                    {/* Actions Section */}
-                    <div className="p-4">
-                      <button
-                        onClick={() => {
-                          handleLogout();
-                          setDropdownOpen(false);
-                        }}
-                        className="w-full px-4 py-3 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 rounded-lg flex items-center justify-center gap-2.5 transition-all duration-300 shadow-sm hover:shadow"
-                      >
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
+                      {/* Actions Section */}
+                      <div className="p-4">
+                        <button
+                          onClick={() => {
+                            handleLogout();
+                            setDropdownOpen(false);
+                          }}
+                          className="w-full px-4 py-3 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 rounded-lg flex items-center justify-center gap-2.5 transition-all duration-300 shadow-sm hover:shadow"
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                          />
-                        </svg>
-                        Disconnect Wallet
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-                </div>
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                            />
+                          </svg>
+                          Disconnect Wallet
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             )
           ) : (
             <button
