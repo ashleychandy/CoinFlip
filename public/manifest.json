@@ -3,7 +3,7 @@
   "name": "GAMA FLIP",
   "icons": [
     {
-      "src": "assets/gama-logo-mark.svg",
+      "src": "assets/gama-logo.svg",
       "sizes": "310x310",
       "type": "image/svg+xml"
     }

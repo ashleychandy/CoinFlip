@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: MIT
-
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -9,10 +8,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "lib/contractsv2/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
 import "lib/contractsv2/src/v0.8/VRFConsumerBaseV2.sol";
 
-/**
- * @title IERC20
- * @dev ERC20 interface for token interactions
- */
 interface IERC20 {
     function totalSupply() external view returns (uint256);
     function balanceOf(address account) external view returns (uint256);
@@ -26,10 +21,6 @@ interface IERC20 {
     function getRemainingMintable() external view returns (uint256);
 }
 
-/**
- * @title Game State Structure
- * @dev Tracks current game status with storage-optimized data types
- */
 struct GameState {
     bool isActive;
     bool completed;
@@ -39,10 +30,6 @@ struct GameState {
     uint256 payout;
 }
 
-/**
- * @title Bet History Structure
- * @dev Records individual bet data with optimized storage
- */
 struct BetHistory {
     uint8 chosenSide;
     uint8 flippedResult;
@@ -51,10 +38,6 @@ struct BetHistory {
     uint256 payout;
 }
 
-/**
- * @title User Data Structure
- * @dev Maintains game state and bet history for each player
- */
 struct UserData {
     GameState currentGame;
     uint256 currentRequestId;
@@ -63,39 +46,35 @@ struct UserData {
     uint256 lastPlayedBlock;
     uint8 historyIndex;
     bool requestFulfilled;
-    // Two-phase resolution fields:
-    // Set by fulfillRandomWords, consumed by resolveGame.
     bool pendingResolution;
     uint256 pendingRandomWord;
 }
 
 /**
  * @title Flip
- * @dev Provably fair flip game using VRF for randomness.
+ * @dev Provably fair coin flip using Chainlink VRF.
  *
- *      Gas optimisation - two-phase resolution:
- *        Phase 1  flipCoin()           - burns tokens, requests VRF
- *        Phase 2  fulfillRandomWords() - stores random word, sets flag (~25k gas)
- *        Phase 3  resolveGame()        - computes result, mints payout, updates history
+ * Two-phase resolution:
+ *   1. flipCoin()           — burns tokens, requests VRF
+ *   2. fulfillRandomWords() — stores random word, sets pendingResolution
+ *   3. resolveGame()        — computes result, mints payout, updates history
  *
- *      fulfillRandomWords is kept deliberately minimal so it always fits
- *      inside the VRF callback gas limit regardless of bet history depth.
- *      resolveGame can be called by the player, a keeper, or any address.
+ * fulfillRandomWords is minimal to stay within VRF callback gas limits.
+ * resolveGame may be called by the player, a keeper, or any address.
  */
 contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
 
-    // ============ Events ============
+    // ── Events ──────────────────────────────────────────────────────────────
     event BetPlaced(address indexed player, uint256 requestId, uint8 chosenSide, uint256 amount);
     event GameCompleted(address indexed player, uint256 requestId, uint8 result, uint256 payout);
     event GameRecovered(address indexed player, uint256 requestId, uint256 refundAmount);
-    // VRF configuration change events
     event VRFSubscriptionIdUpdated(uint64 oldId, uint64 newId);
     event VRFKeyHashUpdated(bytes32 oldKeyHash, bytes32 newKeyHash);
     event VRFCallbackGasLimitUpdated(uint32 oldLimit, uint32 newLimit);
     event VRFRequestConfirmationsUpdated(uint16 oldConfirmations, uint16 newConfirmations);
     event VRFNumWordsUpdated(uint8 oldNumWords, uint8 newNumWords);
 
-    // ============ Custom Errors ============
+    // ── Errors ───────────────────────────────────────────────────────────────
     error InvalidBetParameters(string reason);
     error InsufficientUserBalance(uint256 required, uint256 available);
     error TransferFailed(address from, address to, uint256 amount);
@@ -107,41 +86,32 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
     error VRFError(string reason);
     error MaxPayoutExceeded(uint256 potentialPayout, uint256 maxAllowed);
 
-    // ============ Constants ============
+    // ── Constants ────────────────────────────────────────────────────────────
     uint8 public constant HEADS = 1;
     uint8 public constant TAILS = 2;
     uint8 private constant MAX_SIDES = 2;
     uint8 public constant MAX_HISTORY_SIZE = 10;
     uint256 public constant MAX_BET_AMOUNT = 10_000_000 * 10**18;
-    uint256 public constant MAX_POSSIBLE_PAYOUT = 20_000_000 * 10**18; // 10M * 2
+    uint256 public constant MAX_POSSIBLE_PAYOUT = 20_000_000 * 10**18;
     uint32 private constant GAME_TIMEOUT = 1 hours;
     uint256 private constant BLOCK_THRESHOLD = 300;
-
-    // Special result values
     uint8 public constant RESULT_FORCE_STOPPED = 254;
     uint8 public constant RESULT_RECOVERED = 255;
 
-    // ============ State Variables ============
+    // ── State ────────────────────────────────────────────────────────────────
     IERC20 public immutable gamaToken;
     mapping(address => UserData) private userData;
 
-    // Active players tracking for Chainlink Automation pagination
+    // Active player tracking for keeper pagination
     address[] public activePlayers;
-    mapping(address => uint256) public activePlayerIndex; // 1-based index into activePlayers
+    mapping(address => uint256) public activePlayerIndex; // 1-based
     mapping(address => bool) public isActivePlayer;
 
-    // Game Statistics
     uint256 public totalGamesPlayed;
     uint256 public totalPayoutAmount;
     uint256 public totalWageredAmount;
 
-    // VRF Variables (admin-updatable)
-    // Note: the VRFConsumerBaseV2 stores the coordinator address immutably
-    // in its own constructor; changing the coordinator address post-deploy
-    // would prevent VRF callbacks from being accepted. Therefore the
-    // `COORDINATOR` reference is initialized in the constructor but
-    // is NOT exposed with a setter. Other VRF parameters below are
-    // updateable by the contract owner.
+    // VRF — coordinator address is set once in constructor and never changed
     VRFCoordinatorV2Interface private COORDINATOR;
     uint64 private s_subscriptionId;
     bytes32 private s_keyHash;
@@ -149,7 +119,6 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
     uint16 private requestConfirmations;
     uint8 private numWords;
 
-    // Request tracking
     struct RequestStatus {
         bool fulfilled;
         bool exists;
@@ -159,17 +128,7 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
     mapping(uint256 => address) private requestToPlayer;
     mapping(uint256 => bool) private activeRequestIds;
 
-    // ============ Constructor ============
-    /**
-     * @notice Contract constructor
-     * @param _gamaTokenAddress  Address of the GAMA token contract
-     * @param vrfCoordinator     Address of the VRF coordinator
-     * @param subscriptionId     VRF subscription ID
-     * @param keyHash            VRF key hash for the network
-    * @param _callbackGasLimit  Gas limit for the VRF callback (kept low - callback is now minimal)
-     * @param _requestConfirmations Number of block confirmations required by VRF
-     * @param _numWords          Number of random words to request (must be 1)
-     */
+    // ── Constructor ──────────────────────────────────────────────────────────
     constructor(
         address _gamaTokenAddress,
         address vrfCoordinator,
@@ -193,54 +152,36 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         numWords = _numWords;
     }
 
-    // ============ Owner (admin) VRF setters/getters ============
+    // ── VRF Admin Setters ────────────────────────────────────────────────────
 
-    /**
-     * @notice Update VRF subscription id (owner only)
-     */
     function setVrfSubscriptionId(uint64 _subscriptionId) external onlyOwner {
         emit VRFSubscriptionIdUpdated(s_subscriptionId, _subscriptionId);
         s_subscriptionId = _subscriptionId;
     }
 
-    /**
-     * @notice Update VRF key hash (owner only)
-     */
     function setVrfKeyHash(bytes32 _keyHash) external onlyOwner {
         emit VRFKeyHashUpdated(s_keyHash, _keyHash);
         s_keyHash = _keyHash;
     }
 
-    /**
-     * @notice Update callback gas limit for VRF (owner only)
-     */
     function setVrfCallbackGasLimit(uint32 _callbackGasLimit) external onlyOwner {
         require(_callbackGasLimit > 0, "Callback gas limit must be > 0");
         emit VRFCallbackGasLimitUpdated(callbackGasLimit, _callbackGasLimit);
         callbackGasLimit = _callbackGasLimit;
     }
 
-    /**
-     * @notice Update VRF request confirmations (owner only)
-     */
     function setVrfRequestConfirmations(uint16 _requestConfirmations) external onlyOwner {
         require(_requestConfirmations > 0, "Request confirmations must be > 0");
         emit VRFRequestConfirmationsUpdated(requestConfirmations, _requestConfirmations);
         requestConfirmations = _requestConfirmations;
     }
 
-    /**
-     * @notice Update number of random words requested from VRF (owner only)
-     */
     function setVrfNumWords(uint8 _numWords) external onlyOwner {
         require(_numWords > 0, "numWords must be > 0");
         emit VRFNumWordsUpdated(numWords, _numWords);
         numWords = _numWords;
     }
 
-    /**
-     * @notice Get current VRF configuration
-     */
     function getVrfConfig()
         external
         view
@@ -261,20 +202,16 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         words = numWords;
     }
 
-    // ============ External Functions ============
+    // ── External Functions ───────────────────────────────────────────────────
 
-    /**
-     * @notice Place a bet on a flip (heads or tails).
-     * @param chosenSide  Side to bet on (1 = HEADS, 2 = TAILS)
-     * @param amount      Token amount to bet (burned immediately)
-     * @return requestId  VRF request identifier
-     */
+    /// @notice Place a bet. Burns tokens and requests VRF randomness.
+    /// @param chosenSide 1 = HEADS, 2 = TAILS
+    /// @param amount     Token amount to wager
     function flipCoin(
         uint8 chosenSide,
         uint256 amount
     ) external nonReentrant whenNotPaused returns (uint256 requestId) {
 
-        // ===== CHECKS =====
         if (amount == 0) revert InvalidBetParameters("Bet amount cannot be zero");
         if (amount > MAX_BET_AMOUNT) revert InvalidBetParameters("Bet amount too large");
         if (chosenSide != HEADS && chosenSide != TAILS)
@@ -296,7 +233,6 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         if (potentialPayout > remainingMintable)
             revert MaxPayoutExceeded(potentialPayout, remainingMintable);
 
-        // ===== EFFECTS =====
         gamaToken.burnFrom(msg.sender, amount);
         totalWageredAmount += amount;
 
@@ -333,7 +269,7 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         });
 
         user.currentRequestId = requestId;
-        // Register active player for pagination if not already present
+
         if (!isActivePlayer[msg.sender]) {
             activePlayers.push(msg.sender);
             activePlayerIndex[msg.sender] = activePlayers.length; // 1-based
@@ -344,23 +280,13 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         return requestId;
     }
 
-    /**
-    * @notice VRF coordinator callback - intentionally minimal to stay well
-     *         within the callbackGasLimit regardless of history depth.
-     *
-     *         Stores the random word in UserData and sets pendingResolution.
-     *         All game logic (result calculation, minting, history) is deferred
-     *         to resolveGame().
-     *
-     * @param requestId   VRF request identifier
-     * @param randomWords Array of random values returned by the coordinator
-     */
+    /// @notice VRF callback. Stores the random word and flags pendingResolution.
+    ///         Deliberately minimal — all game logic is deferred to resolveGame().
     function fulfillRandomWords(
         uint256 requestId,
         uint256[] memory randomWords
     ) internal override nonReentrant {
 
-        // ===== CHECKS =====
         RequestStatus storage request = s_requests[requestId];
         if (!request.exists) revert VRFError("Request not found");
         if (request.fulfilled) revert VRFError("Request already fulfilled");
@@ -372,13 +298,11 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         UserData storage user = userData[player];
         if (user.currentRequestId != requestId) revert GameError("Request ID mismatch");
 
-        // Mark the VRF-level request as fulfilled
         request.fulfilled = true;
         request.randomWords = randomWords;
         user.requestFulfilled = true;
 
-        // If the game was already force-stopped or self-recovered while we
-        // waited for VRF, clean up and return - nothing to resolve.
+        // Game was stopped while waiting for VRF — clean up and exit
         if (!user.currentGame.isActive) {
             delete s_requests[requestId];
             delete requestToPlayer[requestId];
@@ -388,51 +312,31 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
             return;
         }
 
-        // ===== EFFECTS (minimal) =====
-        // Persist the random word and signal that resolveGame() can now run.
-        // Deliberately no minting, no history writes, no payout logic here.
         user.pendingRandomWord = randomWords[0];
         user.pendingResolution = true;
-        // Note: currentRequestId is intentionally kept set so that
-        // recoverOwnStuckGame / forceStopGame can still reference it.
     }
 
-    /**
-     * @notice Finalise a game after the VRF callback has responded.
-     *
-     *         This function performs all the work that previously lived in
-     *         fulfillRandomWords: result calculation, payout minting, history
-     *         update, and counter increments. The gas cost is borne by the
-     *         caller (player, keeper, or any address) rather than the VRF
-     *         subscription.
-     *
-     *         Anyone may call this on behalf of any player, enabling a keeper
-     *         pattern without requiring the player to be online.
-     *
-     * @param player  Address of the player whose pending game should be resolved
-     */
+    /// @notice Finalise a game after VRF has responded.
+    ///         Computes result, mints payout, and updates history.
+    ///         Callable by the player, a keeper, or any address.
+    /// @param player Address of the player to resolve
     function resolveGame(address player) external nonReentrant whenNotPaused {
         if (player == address(0)) revert InvalidBetParameters("Invalid player address");
 
         UserData storage user = userData[player];
 
-        // ===== CHECKS =====
         if (!user.pendingResolution)
             revert GameError("No result pending for this player");
         if (!user.currentGame.isActive)
             revert GameError("Game is not active");
 
-        // Cache values before any state mutation
         uint256 requestId  = user.currentRequestId;
         uint256 randomWord = user.pendingRandomWord;
         uint8 chosenSide   = user.currentGame.chosenSide;
         uint256 betAmount  = user.currentGame.amount;
 
-        // ===== EFFECTS =====
-        // 1. Compute result
         uint8 result = uint8((randomWord % MAX_SIDES) + 1);
 
-        // 2. Compute payout
         uint256 payout = 0;
         if (chosenSide == result) {
             if (betAmount > type(uint256).max / 2)
@@ -440,20 +344,16 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
             payout = betAmount * 2;
         }
 
-        // 3. Update game state
         user.currentGame.result    = result;
         user.currentGame.isActive  = false;
         user.currentGame.completed = true;
         user.currentGame.payout    = payout;
 
-        // 4. Update history
         _updateUserHistory(user, chosenSide, result, betAmount, payout);
 
-        // 5. Update global counters
         if (payout > 0) totalPayoutAmount += payout;
         unchecked { ++totalGamesPlayed; }
 
-        // 6. Clear all pending / active state
         user.pendingResolution  = false;
         user.pendingRandomWord  = 0;
         user.currentRequestId   = 0;
@@ -464,7 +364,6 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         delete activeRequestIds[requestId];
         _removeActivePlayer(player);
 
-        // ===== INTERACTIONS =====
         if (payout > 0) {
             gamaToken.mint(player, payout);
         }
@@ -472,27 +371,21 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         emit GameCompleted(player, requestId, result, payout);
     }
 
-    /**
-     * @notice Recover from a stuck game (VRF never responded) and receive a refund.
-     *         Requires both the block threshold and the time timeout to have passed,
-     *         and that the VRF request still exists (i.e. was never fulfilled).
-     */
+    /// @notice Recover from a stuck game if VRF never responded.
+    ///         Requires both BLOCK_THRESHOLD blocks and GAME_TIMEOUT to have elapsed.
     function recoverOwnStuckGame() external nonReentrant whenNotPaused {
         UserData storage user = userData[msg.sender];
 
-        // ===== CHECKS =====
         if (!user.currentGame.isActive) revert GameError("No active game");
 
         uint256 requestId = user.currentRequestId;
         if (requestId == 0) revert GameError("No pending request to recover");
 
-        // Guard against racing with a freshly-fulfilled callback
         if (s_requests[requestId].fulfilled &&
             (block.number <= user.lastPlayedBlock + 10)) {
             revert GameError("Request just fulfilled, let VRF complete");
         }
 
-        // If VRF has already responded, the player should call resolveGame instead
         if (user.pendingResolution)
             revert GameError("VRF responded - call resolveGame() instead");
 
@@ -503,7 +396,6 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         if (!hasBlockThresholdPassed || !hasTimeoutPassed || !hasVrfRequest)
             revert GameError("Game not eligible for recovery yet");
 
-        // ===== EFFECTS =====
         uint256 refundAmount = user.currentGame.amount;
         if (refundAmount == 0) revert GameError("Nothing to refund");
 
@@ -522,7 +414,6 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         user.pendingResolution = false;
         user.pendingRandomWord = 0;
 
-        // ===== INTERACTIONS =====
         gamaToken.mint(msg.sender, refundAmount);
 
         _updateUserHistory(
@@ -536,14 +427,10 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         emit GameRecovered(msg.sender, requestId, refundAmount);
     }
 
-    /**
-     * @notice Owner-only: force-stop a stuck game and refund the player.
-     * @param player  Player address
-     */
+    /// @notice Owner: force-stop a stuck game and refund the player.
     function forceStopGame(address player) external onlyOwner nonReentrant {
         UserData storage user = userData[player];
 
-        // ===== CHECKS =====
         if (!user.currentGame.isActive) revert GameError("No active game");
 
         uint256 requestId = user.currentRequestId;
@@ -553,7 +440,6 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
             revert GameError("Request just fulfilled, let VRF complete");
         }
 
-        // If VRF responded, resolveGame should be called first
         if (user.pendingResolution)
             revert GameError("VRF responded - call resolveGame() instead");
 
@@ -567,7 +453,6 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         uint256 refundAmount = user.currentGame.amount;
         if (refundAmount == 0) revert GameError("Nothing to refund");
 
-        // ===== EFFECTS =====
         if (requestId != 0) {
             delete requestToPlayer[requestId];
             delete activeRequestIds[requestId];
@@ -585,7 +470,6 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         user.pendingResolution = false;
         user.pendingRandomWord = 0;
 
-        // ===== INTERACTIONS =====
         gamaToken.mint(player, refundAmount);
 
         _updateUserHistory(
@@ -599,26 +483,11 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         emit GameRecovered(player, requestId, refundAmount);
     }
 
-    /**
-     * @notice Pause contract operations
-     */
-    function pause() external onlyOwner nonReentrant {
-        _pause();
-    }
+    function pause() external onlyOwner nonReentrant { _pause(); }
+    function unpause() external onlyOwner nonReentrant { _unpause(); }
 
-    /**
-     * @notice Resume contract operations
-     */
-    function unpause() external onlyOwner nonReentrant {
-        _unpause();
-    }
+    // ── View Functions ───────────────────────────────────────────────────────
 
-    // ============ View Functions ============
-
-    /**
-     * @notice Get a player's current game state and last-played timestamp.
-     * @param player  Player address
-     */
     function getUserData(address player) external view returns (
         GameState memory gameState,
         uint256 lastPlayed
@@ -628,10 +497,7 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         return (user.currentGame, user.lastPlayedTimestamp);
     }
 
-    /**
-     * @notice Get a player's bet history (newest first, up to MAX_HISTORY_SIZE).
-     * @param player  Player address
-     */
+    /// @notice Returns bet history newest-first, up to MAX_HISTORY_SIZE entries.
     function getBetHistory(address player) external view returns (BetHistory[] memory) {
         if (player == address(0)) revert InvalidBetParameters("Invalid player address");
 
@@ -659,11 +525,9 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         return orderedBets;
     }
 
-    /**
-     * @notice Get a paginated list of active players for automation/keepers.
-     */
-    function getActivePlayers(uint256 offset, uint256 limit) 
-        external view returns (address[] memory players, uint256 total) 
+    /// @notice Paginated active player list for keeper automation.
+    function getActivePlayers(uint256 offset, uint256 limit)
+        external view returns (address[] memory players, uint256 total)
     {
         total = activePlayers.length;
         if (offset >= total) return (new address[](0), total);
@@ -674,30 +538,18 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         }
     }
 
-
-    /**
-     * @notice Get the player address associated with a VRF request ID.
-     * @param requestId  VRF request ID
-     */
     function getPlayerForRequest(uint256 requestId) external view returns (address) {
         return requestToPlayer[requestId];
     }
 
-    /**
-     * @notice Return true if the player has an active game with a pending VRF request,
-     *         OR if VRF has responded and resolveGame() hasn't been called yet.
-     * @param player  Player address
-     */
+    /// @notice True if the player has an active game with a pending VRF request or pending resolution.
     function hasPendingRequest(address player) external view returns (bool) {
         UserData storage user = userData[player];
         return user.currentGame.isActive &&
                (user.currentRequestId != 0 || user.pendingResolution);
     }
 
-    /**
-     * @notice Return true if the player can start a new game.
-     * @param player  Player address
-     */
+    /// @notice True if the player can start a new game.
     function canStartNewGame(address player) external view returns (bool) {
         UserData storage user = userData[player];
         return !user.currentGame.isActive &&
@@ -705,18 +557,11 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
                !user.pendingResolution;
     }
 
-    /**
-     * @notice Return true if a player has a result ready and is waiting for resolveGame().
-     * @param player  Player address
-     */
+    /// @notice True if the player has a result ready for resolveGame().
     function hasPendingResolution(address player) external view returns (bool) {
         return userData[player].pendingResolution;
     }
 
-    /**
-     * @notice Comprehensive game status for a player.
-     * @param player  Player address
-     */
     function getGameStatus(address player) external view returns (
         bool isActive,
         bool isWin,
@@ -766,11 +611,8 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         }
     }
 
-    // ============ Private Functions ============
+    // ── Private Helpers ──────────────────────────────────────────────────────
 
-    /**
-     * @dev Revert if the player does not have sufficient balance or allowance.
-     */
     function _checkBalancesAndAllowances(address player, uint256 amount) private view {
         uint256 bal = gamaToken.balanceOf(player);
         if (bal < amount) revert InsufficientUserBalance(amount, bal);
@@ -779,9 +621,7 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         if (allowance < amount) revert InsufficientAllowance(amount, allowance);
     }
 
-    /**
-     * @dev Append a bet to the player's circular history buffer.
-     */
+    /// @dev Circular history buffer, newest entry at historyIndex.
     function _updateUserHistory(
         UserData storage user,
         uint8 chosenSide,
@@ -806,12 +646,10 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         }
     }
 
-    /**
-     * @dev Remove a player from the activePlayers list (swap-pop).
-     */
+    /// @dev Swap-pop removal from activePlayers.
     function _removeActivePlayer(address player) private {
         if (!isActivePlayer[player]) return;
-        uint256 idx = activePlayerIndex[player] - 1; // convert to 0-based
+        uint256 idx = activePlayerIndex[player] - 1;
         uint256 last = activePlayers.length - 1;
         if (idx != last) {
             address lastPlayer = activePlayers[last];
