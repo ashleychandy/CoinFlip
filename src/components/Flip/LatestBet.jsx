@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { ethers } from 'ethers';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { usePollingService } from '../../services/pollingService.jsx';
 import { useWallet } from '../wallet/WalletProvider.jsx';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -9,7 +9,6 @@ import {
   faTrophy,
   faRandom,
   faSyncAlt as faSync,
-  faClock,
   faWallet,
   faHistory,
   faSpinner,
@@ -17,11 +16,17 @@ import {
   faExclamationTriangle,
   faCheckCircle,
   faCircleNotch,
-  faHourglassHalf,
 } from '@fortawesome/free-solid-svg-icons';
 import { formatDistanceToNow } from 'date-fns';
 
-const LatestBet = ({ result: betResult, chosenNumber, betAmount }) => {
+const LatestBet = ({
+  betResult,
+  chosenNumber,
+  betAmount,
+  onResolveClick,
+  onRecoveryClick,
+  isResolving = false,
+}) => {
   // Add this function to convert numbers to coin types
   const renderCoinType = num => {
     if (num === 1) return 'H';
@@ -65,9 +70,21 @@ const LatestBet = ({ result: betResult, chosenNumber, betAmount }) => {
     const isActive = gameStatus.isActive;
     const requestExists = gameStatus.requestExists;
     const requestFulfilled = gameStatus.requestFulfilled;
+    const pendingResolution = gameStatus.pendingResolution;
 
     // Waiting for VRF if the game is active and the request exists but isn't fulfilled
-    return isActive && requestExists && !requestFulfilled;
+    return isActive && requestExists && !requestFulfilled && !pendingResolution;
+  }, [gameStatus, isNewUser]);
+
+  const isReadyToResolve = useMemo(() => {
+    if (isNewUser || !gameStatus) return false;
+
+    return (
+      gameStatus.isActive &&
+      !gameStatus.isCompleted &&
+      (gameStatus.pendingResolution ||
+        (gameStatus.requestExists && gameStatus.requestFulfilled))
+    );
   }, [gameStatus, isNewUser]);
 
   // Check if the current game or latest bet is recovered or force stopped
@@ -178,6 +195,17 @@ const LatestBet = ({ result: betResult, chosenNumber, betAmount }) => {
       };
     }
 
+    if (isReadyToResolve) {
+      return {
+        source: 'ready_to_resolve',
+        data: betResult || {
+          chosenNumber: gameStatus?.chosenNumber,
+          amount: gameStatus?.amount,
+          timestamp: gameStatus?.lastPlayTimestamp,
+        },
+      };
+    }
+
     // First check if latest history bet matches our current bet - this takes highest priority
     if (
       latestHistoryBet &&
@@ -241,6 +269,7 @@ const LatestBet = ({ result: betResult, chosenNumber, betAmount }) => {
     isNewUser,
     isSpecialResult,
     specialResultType,
+    isReadyToResolve,
   ]);
 
   // Base styles for the card with glass morphism effect
@@ -629,6 +658,72 @@ const LatestBet = ({ result: betResult, chosenNumber, betAmount }) => {
               </div>
             </div>
           </div>
+        )}
+      </motion.div>
+    );
+  }
+
+  if (displayResult?.source === 'ready_to_resolve') {
+    const resolveBetAmount =
+      displayResult.data?.amount || gameStatus?.amount || '0';
+    const resolveChosenNumber =
+      displayResult.data?.chosenNumber ||
+      chosenNumber ||
+      gameStatus?.chosenNumber;
+
+    return (
+      <motion.div
+        initial="initial"
+        animate="animate"
+        whileHover="hover"
+        variants={cardVariants}
+        className={`${baseCardStyle}`}
+        style={{ borderLeft: '3px solid #10b981' }}
+      >
+        <CardHeader
+          title="Result Ready"
+          icon={faCheckCircle}
+          color="text-emerald-500"
+          status={{ label: 'Resolve', color: 'text-emerald-500' }}
+        />
+
+        <div className="flex items-start space-x-3.5">
+          <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 rounded-md p-2.5 flex items-center justify-center w-10 h-10">
+            <span className="font-mono text-sm text-emerald-600">
+              {renderCoinType(resolveChosenNumber || '?')}
+            </span>
+          </div>
+
+          <div className="flex-1">
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-sm text-gray-500 flex items-center">
+                <span className="font-mono">
+                  {formatAmount(resolveBetAmount)}
+                </span>
+                <span className="opacity-60 text-xs ml-0.5">GAMA</span>
+              </span>
+              <span className="text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
+                VRF complete
+              </span>
+            </div>
+
+            <p className="text-sm text-emerald-600 font-medium">
+              Randomness received
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              Resolve the game onchain to reveal the outcome and payout.
+            </p>
+          </div>
+        </div>
+
+        {typeof onResolveClick === 'function' && (
+          <button
+            onClick={onResolveClick}
+            disabled={isResolving}
+            className="mt-3 w-full rounded-md bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300 text-white text-sm font-medium py-2 transition-colors"
+          >
+            {isResolving ? 'Resolving...' : 'Resolve Game Result'}
+          </button>
         )}
       </motion.div>
     );

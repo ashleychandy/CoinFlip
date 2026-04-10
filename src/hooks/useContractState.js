@@ -4,10 +4,9 @@ import { useWallet } from '../components/wallet/WalletProvider';
 import { useNotification } from '../contexts/NotificationContext';
 import { useEffect } from 'react';
 import { safeContractCall } from '../utils/contractUtils';
-import { ethers } from 'ethers';
 
 export const useContractState = () => {
-  const { contract } = useFlipContract();
+  const { contract, tokenContract } = useFlipContract();
   const { account } = useWallet();
   const queryClient = useQueryClient();
   const { addToast } = useNotification();
@@ -149,11 +148,115 @@ export const useContractState = () => {
         );
       };
 
+      // Handlers for game-related events so UI updates when bets happen externally
+      const handleBetPlaced = (player, _requestId, _chosenSide, _amount) => {
+        // Invalidate queries so UI will reflect external bets immediately
+        queryClient.invalidateQueries({ queryKey: ['gameStatus'] });
+        queryClient.invalidateQueries({ queryKey: ['gameHistory'] });
+        queryClient.invalidateQueries({ queryKey: ['balance'] });
+
+        // Optionally notify the user if the bet belongs to them
+        try {
+          if (
+            player &&
+            account &&
+            player.toLowerCase() === account.toLowerCase()
+          ) {
+            addToast('A bet was placed from your account (external)', 'info');
+          }
+        } catch (err) {
+          // ignore
+        }
+      };
+
+      const handleGameCompleted = (player, _requestId, _result, _payout) => {
+        queryClient.invalidateQueries({ queryKey: ['gameStatus'] });
+        queryClient.invalidateQueries({ queryKey: ['gameHistory'] });
+        queryClient.invalidateQueries({ queryKey: ['balance'] });
+
+        try {
+          if (
+            player &&
+            account &&
+            player.toLowerCase() === account.toLowerCase()
+          ) {
+            addToast('Your game completed (external)', 'success');
+          }
+        } catch (err) {
+          // ignore
+        }
+      };
+
+      // Handler for ERC20 Approval events on the token contract
+      const handleTokenApproval = (owner, spender, value) => {
+        try {
+          // Debug: log approval events so we can confirm event emission in browser
+          try {
+            console.debug &&
+              console.debug('[useContractState] Approval', {
+                owner,
+                spender,
+                value,
+              });
+          } catch (_e) {
+            return;
+          }
+
+          // Only refresh balance/allowance for the connected account
+          if (
+            !owner ||
+            !account ||
+            owner.toLowerCase() !== account.toLowerCase()
+          ) {
+            return;
+          }
+
+          // Invalidate balance-related queries immediately and schedule retries
+          // to account for RPC indexing delays or providers that don't emit events reliably.
+          try {
+            queryClient.invalidateQueries({ queryKey: ['balance'] });
+          } catch (err) {
+            // ignore
+          }
+
+          // Also schedule follow-up invalidations to ensure UI picks up the change
+          setTimeout(() => {
+            try {
+              queryClient.invalidateQueries({ queryKey: ['balance'] });
+            } catch (err) {
+              // ignore
+            }
+          }, 1500);
+
+          setTimeout(() => {
+            try {
+              queryClient.invalidateQueries({ queryKey: ['balance'] });
+            } catch (err) {
+              // ignore
+            }
+          }, 4000);
+
+          // Notify the user the approval updated
+          addToast('Token approval updated', 'success');
+        } catch (err) {
+          // ignore
+        }
+      };
+
       // Safely add event listeners with error handling
       try {
         contract.on('Paused', handlePaused);
         contract.on('Unpaused', handleUnpaused);
         contract.on('OwnershipTransferred', handleOwnershipTransferred);
+
+        // Game events
+        contract.on('BetPlaced', handleBetPlaced);
+        contract.on('GameCompleted', handleGameCompleted);
+
+        // Token approval event (ERC20)
+        if (tokenContract && typeof tokenContract.on === 'function') {
+          tokenContract.on('Approval', handleTokenApproval);
+        }
       } catch (err) {
         // Silent error for event listeners setup
       }
@@ -163,6 +266,15 @@ export const useContractState = () => {
           contract.removeAllListeners('Paused');
           contract.removeAllListeners('Unpaused');
           contract.removeAllListeners('OwnershipTransferred');
+          contract.removeAllListeners('BetPlaced');
+          contract.removeAllListeners('GameCompleted');
+
+          if (
+            tokenContract &&
+            typeof tokenContract.removeAllListeners === 'function'
+          ) {
+            tokenContract.removeAllListeners('Approval');
+          }
         } catch (err) {
           // Silent error for event listeners removal
         }
@@ -172,7 +284,7 @@ export const useContractState = () => {
     }
 
     return cleanupFunction;
-  }, [contract, queryClient, addToast]);
+  }, [contract, tokenContract, queryClient, addToast, account]);
 
   return {
     contractState,

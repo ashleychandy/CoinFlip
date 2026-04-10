@@ -101,6 +101,7 @@ export const useRequestTracking = requestId => {
               requestExists: false,
               requestProcessed: false,
               recoveryEligible: false,
+              pendingResolution: false,
             }),
           ]);
 
@@ -117,6 +118,7 @@ export const useRequestTracking = requestId => {
                 requestExists: false,
                 requestProcessed: false,
                 recoveryEligible: false,
+                pendingResolution: false,
               };
 
         return {
@@ -128,6 +130,7 @@ export const useRequestTracking = requestId => {
             requestExists: gameStatus.requestExists,
             requestProcessed: gameStatus.requestProcessed,
             recoveryEligible: gameStatus.recoveryEligible,
+            pendingResolution: gameStatus.pendingResolution,
           },
         };
       } catch (error) {

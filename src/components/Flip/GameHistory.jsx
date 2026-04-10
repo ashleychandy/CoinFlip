@@ -197,7 +197,7 @@ const GameHistory = ({ account, onError, hideHeading = false }) => {
   const { isWalletConnected } = useWallet();
 
   // Get isNewUser state from polling service
-  const { isNewUser, gameStatus } = usePollingService();
+  const { isNewUser, gameStatus, lastUpdated } = usePollingService();
 
   // Use the bet history hook
   const {
@@ -381,12 +381,26 @@ const GameHistory = ({ account, onError, hideHeading = false }) => {
     return games;
   }, [filteredGames, gameStatus, filter]);
 
-  // Define isDataLoading here so it's available throughout the component
-  const isDataLoading = isLoading && (!betHistory || betHistory.length === 0);
+  const hasDisplayBets = displayBets.length > 0;
+
+  // Only show the skeleton before the first successful history fetch.
+  // After that, keep the real history UI mounted during background refreshes.
+  const isDataLoading =
+    isLoading &&
+    lastUpdated === null &&
+    !hasDisplayBets &&
+    !gameStatus?.isActive &&
+    !isNewUser;
 
   // Show empty state only if we have no data to display at all
-  const showEmptyState =
-    !isDataLoading && (!displayBets || displayBets.length === 0);
+  const showEmptyState = !isDataLoading && !hasDisplayBets;
+
+  const shouldShowWelcome =
+    isWalletConnected &&
+    account &&
+    isNewUser &&
+    !gameStatus?.isActive &&
+    !gameStatus?.lastPlayTimestamp;
 
   // For new users without a wallet connection or those who haven't placed bets yet, show a welcome message
   if (!isWalletConnected || !account) {
@@ -394,7 +408,7 @@ const GameHistory = ({ account, onError, hideHeading = false }) => {
   }
 
   // Show welcome message for users who have connected their wallet but haven't placed any bets
-  if (isWalletConnected && account && isNewUser) {
+  if (shouldShowWelcome) {
     return <WelcomeNewUser />;
   }
 

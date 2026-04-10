@@ -3,10 +3,7 @@ import { ethers } from 'ethers';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 // Import utilities and hooks
-import {
-  checkAndApproveToken,
-  parseGameResultEvent,
-} from '../utils/contractUtils';
+import { checkAndApproveToken } from '../utils/contractUtils';
 import { useLoadingState } from './useLoadingState';
 import { useErrorHandler } from './useErrorHandler';
 import { useFlipContract } from './useFlipContract';
@@ -14,6 +11,7 @@ import { useWallet } from '../components/wallet/WalletProvider';
 import { useContractState } from './useContractState';
 import { useContractStats } from './useContractStats';
 import { useRequestTracking } from './useRequestTracking';
+import { usePollingService } from '../services/pollingService.jsx';
 import { handleContractError } from '../utils/errorHandling';
 
 // Custom hook for bet state management
@@ -155,9 +153,11 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
   const FlipTimeoutRef = useRef(null);
   const [isApproving, setIsApproving] = useState(false);
   const [isBetting, withBetting] = useLoadingState(false);
+  const [isResolving, withResolving] = useLoadingState(false);
   const handleError = useErrorHandler(onError, addToast);
   const { contract: _contract } = useFlipContract();
   const { account: walletAccount } = useWallet();
+  const { gameStatus, refreshData } = usePollingService();
   const [isProcessing, _setIsProcessing] = useState(false);
   const [error, _setError] = useState(null);
   const pendingTxRef = useRef(null);
@@ -167,20 +167,63 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
   const { contractState: _contractState } = useContractState();
   const { stats } = useContractStats();
   const { userPendingRequest: _userPendingRequest } = useRequestTracking();
+  const balanceQueryKey = useMemo(
+    () => ['balance', walletAccount, contracts?.token ? true : false],
+    [walletAccount, contracts?.token]
+  );
 
   // Helper to batch multiple query invalidations
   const invalidateQueries = useCallback(
     (types = ['balance']) => {
-      if (!walletAccount) return;
-
-      const timestamp = Date.now(); // Add timestamp to ensure cache busting
-
       types.forEach(type => {
-        queryClient.invalidateQueries([type, walletAccount, timestamp]);
+        queryClient.invalidateQueries({ queryKey: [type] });
+
+        if (walletAccount) {
+          queryClient.invalidateQueries({ queryKey: [type, walletAccount] });
+        }
       });
     },
     [queryClient, walletAccount]
   );
+
+  const fetchBalanceData = useCallback(async () => {
+    if (!contracts?.token || !walletAccount) {
+      return {
+        balance: BigInt(0),
+        allowance: BigInt(0),
+      };
+    }
+
+    try {
+      const [balance, tokenAllowance] = await Promise.all([
+        contracts.token.balanceOf(walletAccount).catch(_err => {
+          return BigInt(0);
+        }),
+        contracts.token
+          .allowance(
+            walletAccount,
+            contracts.Flip?.address ||
+              contracts.Flip?.target ||
+              ethers.ZeroAddress
+          )
+          .catch(_err => {
+            return BigInt(0);
+          }),
+      ]);
+
+      return {
+        balance: balance ? BigInt(balance.toString()) : BigInt(0),
+        allowance: tokenAllowance
+          ? BigInt(tokenAllowance.toString())
+          : BigInt(0),
+      };
+    } catch (_error) {
+      return {
+        balance: BigInt(0),
+        allowance: BigInt(0),
+      };
+    }
+  }, [contracts, walletAccount]);
 
   // Always invalidate balance data when component mounts or account/contracts change
   useEffect(() => {
@@ -264,49 +307,8 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
 
   // Balance Query with optimized settings
   const { data: balanceData, isLoading: balanceLoading } = useQuery({
-    queryKey: ['balance', walletAccount, contracts?.token ? true : false],
-    queryFn: async () => {
-      if (!contracts?.token || !walletAccount) {
-        return {
-          balance: BigInt(0),
-          allowance: BigInt(0),
-        };
-      }
-
-      try {
-        const [balance, tokenAllowance] = await Promise.all([
-          contracts.token.balanceOf(walletAccount).catch(err => {
-            return BigInt(0);
-          }),
-          contracts.token
-            .allowance(
-              walletAccount,
-              contracts.Flip?.address ||
-                contracts.Flip?.target ||
-                ethers.ZeroAddress
-            )
-            .catch(err => {
-              return BigInt(0);
-            }),
-        ]);
-
-        // Force conversion to BigInt to ensure consistency
-        const balanceBigInt = balance ? BigInt(balance.toString()) : BigInt(0);
-        const allowanceBigInt = tokenAllowance
-          ? BigInt(tokenAllowance.toString())
-          : BigInt(0);
-
-        return {
-          balance: balanceBigInt,
-          allowance: allowanceBigInt,
-        };
-      } catch (error) {
-        return {
-          balance: BigInt(0),
-          allowance: BigInt(0),
-        };
-      }
-    },
+    queryKey: balanceQueryKey,
+    queryFn: fetchBalanceData,
     enabled: !!contracts?.token && !!walletAccount,
     staleTime: 30000, // Keep data fresh for 30 seconds
     cacheTime: 60000, // Cache for 1 minute
@@ -314,10 +316,16 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     refetchInterval: 5000, // Refetch data every 5 seconds
     refetchIntervalInBackground: true, // Continue refetching even when tab is not in focus
     refetchOnWindowFocus: true,
-    onError: error => {
+    onError: _error => {
       // Error handled silently
     },
   });
+
+  const syncBalanceData = useCallback(async () => {
+    const latestBalanceData = await fetchBalanceData();
+    queryClient.setQueryData(balanceQueryKey, latestBalanceData);
+    return latestBalanceData;
+  }, [balanceQueryKey, fetchBalanceData, queryClient]);
 
   // Handle approving tokens with optimistic updates
   const handleApproveToken = useCallback(async () => {
@@ -396,8 +404,8 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
           // Create a small delay to let blockchain state settle
           await new Promise(resolve => setTimeout(resolve, 2000));
 
-          // Refresh balance data
-          invalidateQueries(['balance']);
+          // Refresh balance data directly so approval state updates immediately
+          await syncBalanceData();
         } catch (refetchError) {
           // Continue despite refetch error, since approval was successful
         }
@@ -462,11 +470,9 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     walletAccount,
     handleError,
     addToast,
-    queryClient,
     isApproving,
     setProcessingState,
-    checkAndApproveToken,
-    invalidateQueries,
+    syncBalanceData,
   ]);
 
   // Validate bet amount against contract limits
@@ -693,12 +699,28 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
                 const gameStatus =
                   await contracts.Flip.getGameStatus(walletAccount);
 
+                if (gameStatus.pendingResolution) {
+                  operationInProgress.current = false;
+                  setProcessingState(false);
+                  setRollingState(false);
+                  clearSafetyTimeout();
+                  await refreshData();
+                  addToast({
+                    title: 'Result Ready',
+                    description:
+                      'VRF has completed. Click Resolve Game to reveal the outcome.',
+                    type: 'success',
+                  });
+                  return;
+                }
+
                 // If the game is completed, reset processing state
                 if (!gameStatus.isActive || gameStatus.isCompleted) {
                   operationInProgress.current = false;
                   setProcessingState(false);
                   setRollingState(false);
                   clearSafetyTimeout();
+                  await refreshData();
                   addToast({
                     title: 'Game Completed',
                     description: 'Your game has been completed!',
@@ -749,10 +771,111 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     chosenNumber,
     betAmount,
     balanceData,
+    isBetting,
+    refreshData,
     addToast,
     invalidateQueries,
     handleError,
     withBetting,
+    setLastResult,
+    setProcessingState,
+    setRollingState,
+  ]);
+
+  const handleResolveGame = useCallback(async () => {
+    if (!contracts?.Flip || !walletAccount) {
+      addToast({
+        title: 'Connection Error',
+        description: 'Cannot resolve game: wallet or contract connection issue',
+        type: 'error',
+      });
+      return;
+    }
+
+    if (!gameStatus?.pendingResolution) {
+      addToast({
+        title: 'No Result Ready',
+        description: 'There is no fulfilled game waiting to be resolved.',
+        type: 'warning',
+      });
+      return;
+    }
+
+    if (operationInProgress.current || isBetting || isResolving) {
+      addToast({
+        title: 'Operation in Progress',
+        description: 'Please wait for the current action to finish.',
+        type: 'warning',
+      });
+      return;
+    }
+
+    operationInProgress.current = true;
+    setProcessingState(true);
+
+    try {
+      await withResolving(async () => {
+        addToast({
+          title: 'Resolving Result',
+          description: 'Submitting the resolve transaction...',
+          type: 'info',
+        });
+
+        const tx = await contracts.Flip.resolveGame(walletAccount);
+        pendingTxRef.current = tx;
+
+        const receipt = await tx.wait();
+        const resolvedStatus = await contracts.Flip.getGameStatus(
+          walletAccount
+        ).catch(() => null);
+
+        if (resolvedStatus?.isCompleted) {
+          setLastResult({
+            txHash: receipt.hash,
+            timestamp: Number(resolvedStatus.lastPlayTimestamp || 0),
+            chosenNumber: Number(resolvedStatus.chosenSide || 0),
+            rolledNumber: Number(resolvedStatus.result || 0),
+            amount: resolvedStatus.amount?.toString?.() || '0',
+            payout: resolvedStatus.payout?.toString?.() || '0',
+            isWin: Boolean(resolvedStatus.isWin),
+            isPending: false,
+            vrfPending: false,
+            awaitingResolution: false,
+          });
+        }
+
+        invalidateQueries([
+          'balance',
+          'gameStatus',
+          'betHistory',
+          'gameHistory',
+        ]);
+        await refreshData();
+
+        addToast({
+          title: 'Game Resolved',
+          description: 'Your flip result has been revealed.',
+          type: 'success',
+        });
+      });
+    } catch (resolveError) {
+      handleContractError(resolveError, addToast);
+    } finally {
+      pendingTxRef.current = null;
+      operationInProgress.current = false;
+      setProcessingState(false);
+      setRollingState(false);
+    }
+  }, [
+    contracts,
+    walletAccount,
+    gameStatus?.pendingResolution,
+    isBetting,
+    isResolving,
+    addToast,
+    withResolving,
+    invalidateQueries,
+    refreshData,
     setLastResult,
     setProcessingState,
     setRollingState,
@@ -801,6 +924,69 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     }
   }, [balanceData, betAmount]);
 
+  // Keep approval state in sync even when approval happens outside this UI.
+  // Some providers miss token Approval events, so we also poll allowance directly.
+  useEffect(() => {
+    let cancelled = false;
+
+    const FlipContractAddress =
+      contracts?.Flip?.address || contracts?.Flip?.target || null;
+
+    const syncExternalApprovalState = async () => {
+      if (cancelled) return;
+      if (!contracts?.token || !walletAccount || !FlipContractAddress) return;
+
+      try {
+        const cachedBalanceData = queryClient.getQueryData(balanceQueryKey);
+        const latestBalanceData = await fetchBalanceData();
+
+        const cachedAllowance = cachedBalanceData?.allowance
+          ? BigInt(cachedBalanceData.allowance.toString())
+          : null;
+        const cachedBalance = cachedBalanceData?.balance
+          ? BigInt(cachedBalanceData.balance.toString())
+          : null;
+
+        if (
+          cachedAllowance !== latestBalanceData.allowance ||
+          cachedBalance !== latestBalanceData.balance
+        ) {
+          queryClient.setQueryData(balanceQueryKey, latestBalanceData);
+        }
+      } catch (_err) {
+        // ignore errors while polling
+      }
+    };
+
+    syncExternalApprovalState();
+
+    const intervalId = setInterval(syncExternalApprovalState, 4000);
+    const handleWindowFocus = () => {
+      syncExternalApprovalState();
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        syncExternalApprovalState();
+      }
+    };
+
+    window.addEventListener('focus', handleWindowFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+      window.removeEventListener('focus', handleWindowFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [
+    balanceQueryKey,
+    contracts,
+    fetchBalanceData,
+    queryClient,
+    walletAccount,
+  ]);
+
   // Cancel any pending operation when component unmounts or user navigates away
   useEffect(() => {
     return () => {
@@ -835,7 +1021,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
   }, [gameState.lastResult, invalidateQueries]);
 
   // Add a function to check for VRF results in history
-  const checkVrfResultInHistory = async txHash => {
+  const _checkVrfResultInHistory = async txHash => {
     try {
       // Only proceed if we still have a pending VRF
       const currentResult = queryClient.getQueryData(['lastResult']);
@@ -897,7 +1083,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
               vrfRetryCount: (prev.vrfRetryCount || 0) + 1,
             }));
 
-            setTimeout(() => checkVrfResultInHistory(txHash), 5000);
+            setTimeout(() => _checkVrfResultInHistory(txHash), 5000);
           } else {
             // After max retries, mark the VRF as complete but with unknown result
             setLastResult(prev => ({
@@ -919,7 +1105,7 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
         }
       } else {
         // If no history data, retry
-        setTimeout(() => checkVrfResultInHistory(txHash), 5000);
+        setTimeout(() => _checkVrfResultInHistory(txHash), 5000);
       }
     } catch (error) {
       // On error, make sure we stop the animation after a few retries
@@ -945,12 +1131,14 @@ export const useGameLogic = (contracts, account, onError, addToast) => {
     needsApproval,
     isApproving,
     isBetting,
+    isResolving,
     isProcessing,
     error,
     setChosenNumber,
     setBetAmount,
     handleApproveToken,
     handlePlaceBet,
+    handleResolveGame,
     invalidateQueries,
   };
 };

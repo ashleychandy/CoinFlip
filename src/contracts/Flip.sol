@@ -63,17 +63,37 @@ struct UserData {
     uint256 lastPlayedBlock;
     uint8 historyIndex;
     bool requestFulfilled;
+    // Two-phase resolution fields:
+    // Set by fulfillRandomWords, consumed by resolveGame.
+    bool pendingResolution;
+    uint256 pendingRandomWord;
 }
 
 /**
  * @title Flip
- * @dev Provably fair flip game using VRF for randomness
+ * @dev Provably fair flip game using VRF for randomness.
+ *
+ *      Gas optimisation - two-phase resolution:
+ *        Phase 1  flipCoin()           - burns tokens, requests VRF
+ *        Phase 2  fulfillRandomWords() - stores random word, sets flag (~25k gas)
+ *        Phase 3  resolveGame()        - computes result, mints payout, updates history
+ *
+ *      fulfillRandomWords is kept deliberately minimal so it always fits
+ *      inside the VRF callback gas limit regardless of bet history depth.
+ *      resolveGame can be called by the player, a keeper, or any address.
  */
 contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
+
     // ============ Events ============
     event BetPlaced(address indexed player, uint256 requestId, uint8 chosenSide, uint256 amount);
     event GameCompleted(address indexed player, uint256 requestId, uint8 result, uint256 payout);
     event GameRecovered(address indexed player, uint256 requestId, uint256 refundAmount);
+    // VRF configuration change events
+    event VRFSubscriptionIdUpdated(uint64 oldId, uint64 newId);
+    event VRFKeyHashUpdated(bytes32 oldKeyHash, bytes32 newKeyHash);
+    event VRFCallbackGasLimitUpdated(uint32 oldLimit, uint32 newLimit);
+    event VRFRequestConfirmationsUpdated(uint16 oldConfirmations, uint16 newConfirmations);
+    event VRFNumWordsUpdated(uint8 oldNumWords, uint8 newNumWords);
 
     // ============ Custom Errors ============
     error InvalidBetParameters(string reason);
@@ -96,7 +116,7 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
     uint256 public constant MAX_POSSIBLE_PAYOUT = 20_000_000 * 10**18; // 10M * 2
     uint32 private constant GAME_TIMEOUT = 1 hours;
     uint256 private constant BLOCK_THRESHOLD = 300;
-    
+
     // Special result values
     uint8 public constant RESULT_FORCE_STOPPED = 254;
     uint8 public constant RESULT_RECOVERED = 255;
@@ -104,19 +124,30 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
     // ============ State Variables ============
     IERC20 public immutable gamaToken;
     mapping(address => UserData) private userData;
-    
+
+    // Active players tracking for Chainlink Automation pagination
+    address[] public activePlayers;
+    mapping(address => uint256) public activePlayerIndex; // 1-based index into activePlayers
+    mapping(address => bool) public isActivePlayer;
+
     // Game Statistics
     uint256 public totalGamesPlayed;
     uint256 public totalPayoutAmount;
     uint256 public totalWageredAmount;
 
-    // VRF Variables
-    VRFCoordinatorV2Interface private immutable COORDINATOR;
-    uint64 private immutable s_subscriptionId;
-    bytes32 private immutable s_keyHash;
-    uint32 private immutable callbackGasLimit;
-    uint16 private immutable requestConfirmations;
-    uint8 private immutable numWords;
+    // VRF Variables (admin-updatable)
+    // Note: the VRFConsumerBaseV2 stores the coordinator address immutably
+    // in its own constructor; changing the coordinator address post-deploy
+    // would prevent VRF callbacks from being accepted. Therefore the
+    // `COORDINATOR` reference is initialized in the constructor but
+    // is NOT exposed with a setter. Other VRF parameters below are
+    // updateable by the contract owner.
+    VRFCoordinatorV2Interface private COORDINATOR;
+    uint64 private s_subscriptionId;
+    bytes32 private s_keyHash;
+    uint32 private callbackGasLimit;
+    uint16 private requestConfirmations;
+    uint8 private numWords;
 
     // Request tracking
     struct RequestStatus {
@@ -131,13 +162,13 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
     // ============ Constructor ============
     /**
      * @notice Contract constructor
-     * @param _gamaTokenAddress Address of the token contract
-     * @param vrfCoordinator Address of the VRF coordinator
-     * @param subscriptionId VRF subscription ID
-     * @param keyHash VRF key hash for the network
-     * @param _callbackGasLimit Gas limit for VRF callback
-     * @param _requestConfirmations Number of confirmations for VRF request
-     * @param _numWords Number of random words to request
+     * @param _gamaTokenAddress  Address of the GAMA token contract
+     * @param vrfCoordinator     Address of the VRF coordinator
+     * @param subscriptionId     VRF subscription ID
+     * @param keyHash            VRF key hash for the network
+    * @param _callbackGasLimit  Gas limit for the VRF callback (kept low - callback is now minimal)
+     * @param _requestConfirmations Number of block confirmations required by VRF
+     * @param _numWords          Number of random words to request (must be 1)
      */
     constructor(
         address _gamaTokenAddress,
@@ -152,7 +183,7 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         require(vrfCoordinator != address(0), "VRF coordinator cannot be zero");
         require(_callbackGasLimit > 0, "Callback gas limit cannot be zero");
         require(_numWords > 0, "Number of words cannot be zero");
-        
+
         gamaToken = IERC20(_gamaTokenAddress);
         COORDINATOR = VRFCoordinatorV2Interface(vrfCoordinator);
         s_subscriptionId = subscriptionId;
@@ -162,49 +193,113 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         numWords = _numWords;
     }
 
-    // ============ External Functions ============
+    // ============ Owner (admin) VRF setters/getters ============
+
     /**
-     * @notice Place a bet on a flip (heads or tails)
-     * @param chosenSide Side to bet on (1=HEADS, 2=TAILS)
-     * @param amount Token amount to bet
-     * @return requestId VRF request ID
+     * @notice Update VRF subscription id (owner only)
      */
-    function flipCoin(uint8 chosenSide, uint256 amount) external nonReentrant whenNotPaused returns (uint256 requestId) {
+    function setVrfSubscriptionId(uint64 _subscriptionId) external onlyOwner {
+        emit VRFSubscriptionIdUpdated(s_subscriptionId, _subscriptionId);
+        s_subscriptionId = _subscriptionId;
+    }
+
+    /**
+     * @notice Update VRF key hash (owner only)
+     */
+    function setVrfKeyHash(bytes32 _keyHash) external onlyOwner {
+        emit VRFKeyHashUpdated(s_keyHash, _keyHash);
+        s_keyHash = _keyHash;
+    }
+
+    /**
+     * @notice Update callback gas limit for VRF (owner only)
+     */
+    function setVrfCallbackGasLimit(uint32 _callbackGasLimit) external onlyOwner {
+        require(_callbackGasLimit > 0, "Callback gas limit must be > 0");
+        emit VRFCallbackGasLimitUpdated(callbackGasLimit, _callbackGasLimit);
+        callbackGasLimit = _callbackGasLimit;
+    }
+
+    /**
+     * @notice Update VRF request confirmations (owner only)
+     */
+    function setVrfRequestConfirmations(uint16 _requestConfirmations) external onlyOwner {
+        require(_requestConfirmations > 0, "Request confirmations must be > 0");
+        emit VRFRequestConfirmationsUpdated(requestConfirmations, _requestConfirmations);
+        requestConfirmations = _requestConfirmations;
+    }
+
+    /**
+     * @notice Update number of random words requested from VRF (owner only)
+     */
+    function setVrfNumWords(uint8 _numWords) external onlyOwner {
+        require(_numWords > 0, "numWords must be > 0");
+        emit VRFNumWordsUpdated(numWords, _numWords);
+        numWords = _numWords;
+    }
+
+    /**
+     * @notice Get current VRF configuration
+     */
+    function getVrfConfig()
+        external
+        view
+        returns (
+            address coordinator,
+            uint64 subscriptionId,
+            bytes32 keyHash,
+            uint32 gasLimit,
+            uint16 confirmations,
+            uint8 words
+        )
+    {
+        coordinator = address(COORDINATOR);
+        subscriptionId = s_subscriptionId;
+        keyHash = s_keyHash;
+        gasLimit = callbackGasLimit;
+        confirmations = requestConfirmations;
+        words = numWords;
+    }
+
+    // ============ External Functions ============
+
+    /**
+     * @notice Place a bet on a flip (heads or tails).
+     * @param chosenSide  Side to bet on (1 = HEADS, 2 = TAILS)
+     * @param amount      Token amount to bet (burned immediately)
+     * @return requestId  VRF request identifier
+     */
+    function flipCoin(
+        uint8 chosenSide,
+        uint256 amount
+    ) external nonReentrant whenNotPaused returns (uint256 requestId) {
+
         // ===== CHECKS =====
-        // 1. Basic input validation
         if (amount == 0) revert InvalidBetParameters("Bet amount cannot be zero");
         if (amount > MAX_BET_AMOUNT) revert InvalidBetParameters("Bet amount too large");
-        if (chosenSide != HEADS && chosenSide != TAILS) revert InvalidBetParameters("Invalid chosen side (must be 1 for HEADS or 2 for TAILS)");
+        if (chosenSide != HEADS && chosenSide != TAILS)
+            revert InvalidBetParameters("Invalid chosen side (must be 1 for HEADS or 2 for TAILS)");
 
-        // 2. Check if user has an active game
         UserData storage user = userData[msg.sender];
         if (user.currentGame.isActive) revert GameError("User has an active game");
         if (user.currentRequestId != 0) revert GameError("User has a pending request");
+        if (user.pendingResolution) revert GameError("Previous game awaiting resolveGame()");
 
-        // 3. Balance, allowance
         _checkBalancesAndAllowances(msg.sender, amount);
 
-        // Calculate potential payout
         uint256 potentialPayout = amount * 2;
         if (potentialPayout / 2 != amount) revert PayoutCalculationError("Payout calculation overflow");
-        if (potentialPayout > MAX_POSSIBLE_PAYOUT) {
+        if (potentialPayout > MAX_POSSIBLE_PAYOUT)
             revert MaxPayoutExceeded(potentialPayout, MAX_POSSIBLE_PAYOUT);
-        }
-        
-        // 4. Check if potential payout doesn't exceed remaining mintable amount
+
         uint256 remainingMintable = gamaToken.getRemainingMintable();
-        if (potentialPayout > remainingMintable) {
+        if (potentialPayout > remainingMintable)
             revert MaxPayoutExceeded(potentialPayout, remainingMintable);
-        }
 
         // ===== EFFECTS =====
-        // 5. Burn tokens first
         gamaToken.burnFrom(msg.sender, amount);
-
-        // Update total wagered amount
         totalWageredAmount += amount;
 
-        // 6. Request random number using VRF
         requestId = COORDINATOR.requestRandomWords(
             s_keyHash,
             s_subscriptionId,
@@ -213,23 +308,21 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
             numWords
         );
 
-        // 7. Record the request
         s_requests[requestId] = RequestStatus({
             randomWords: new uint256[](0),
             exists: true,
             fulfilled: false
         });
-        
-        // 8. Store request mapping
+
         requestToPlayer[requestId] = msg.sender;
         activeRequestIds[requestId] = true;
-        
-        // Update timestamp and block number
+
         user.lastPlayedTimestamp = uint32(block.timestamp);
         user.lastPlayedBlock = block.number;
         user.requestFulfilled = false;
-        
-        // 9. Update user's game state
+        user.pendingResolution = false;
+        user.pendingRandomWord = 0;
+
         user.currentGame = GameState({
             isActive: true,
             completed: false,
@@ -238,42 +331,55 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
             amount: amount,
             payout: 0
         });
-        
+
         user.currentRequestId = requestId;
-        
+        // Register active player for pagination if not already present
+        if (!isActivePlayer[msg.sender]) {
+            activePlayers.push(msg.sender);
+            activePlayerIndex[msg.sender] = activePlayers.length; // 1-based
+            isActivePlayer[msg.sender] = true;
+        }
+
         emit BetPlaced(msg.sender, requestId, chosenSide, amount);
-        
         return requestId;
     }
 
     /**
-     * @notice VRF Coordinator callback function
-     * @param requestId VRF request identifier
-     * @param randomWords Random results from VRF
+    * @notice VRF coordinator callback - intentionally minimal to stay well
+     *         within the callbackGasLimit regardless of history depth.
+     *
+     *         Stores the random word in UserData and sets pendingResolution.
+     *         All game logic (result calculation, minting, history) is deferred
+     *         to resolveGame().
+     *
+     * @param requestId   VRF request identifier
+     * @param randomWords Array of random values returned by the coordinator
      */
-    function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override nonReentrant {
+    function fulfillRandomWords(
+        uint256 requestId,
+        uint256[] memory randomWords
+    ) internal override nonReentrant {
+
         // ===== CHECKS =====
-        // 1. Validate VRF request
         RequestStatus storage request = s_requests[requestId];
         if (!request.exists) revert VRFError("Request not found");
         if (request.fulfilled) revert VRFError("Request already fulfilled");
         if (randomWords.length != numWords) revert VRFError("Invalid random words length");
 
-        // 2. Validate player and game state
         address player = requestToPlayer[requestId];
         if (player == address(0)) revert VRFError("Invalid player address");
-        
+
         UserData storage user = userData[player];
         if (user.currentRequestId != requestId) revert GameError("Request ID mismatch");
-        
-        // Mark request as fulfilled to prevent race conditions
+
+        // Mark the VRF-level request as fulfilled
         request.fulfilled = true;
         request.randomWords = randomWords;
         user.requestFulfilled = true;
-        
-        // Check if game is still active
+
+        // If the game was already force-stopped or self-recovered while we
+        // waited for VRF, clean up and return - nothing to resolve.
         if (!user.currentGame.isActive) {
-            // Game already recovered or force-stopped, clean up ALL request data
             delete s_requests[requestId];
             delete requestToPlayer[requestId];
             delete activeRequestIds[requestId];
@@ -282,56 +388,83 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
             return;
         }
 
-        // Cache important values
-        uint8 chosenSide = user.currentGame.chosenSide;
-        uint256 betAmount = user.currentGame.amount;
-        
+        // ===== EFFECTS (minimal) =====
+        // Persist the random word and signal that resolveGame() can now run.
+        // Deliberately no minting, no history writes, no payout logic here.
+        user.pendingRandomWord = randomWords[0];
+        user.pendingResolution = true;
+        // Note: currentRequestId is intentionally kept set so that
+        // recoverOwnStuckGame / forceStopGame can still reference it.
+    }
+
+    /**
+     * @notice Finalise a game after the VRF callback has responded.
+     *
+     *         This function performs all the work that previously lived in
+     *         fulfillRandomWords: result calculation, payout minting, history
+     *         update, and counter increments. The gas cost is borne by the
+     *         caller (player, keeper, or any address) rather than the VRF
+     *         subscription.
+     *
+     *         Anyone may call this on behalf of any player, enabling a keeper
+     *         pattern without requiring the player to be online.
+     *
+     * @param player  Address of the player whose pending game should be resolved
+     */
+    function resolveGame(address player) external nonReentrant whenNotPaused {
+        if (player == address(0)) revert InvalidBetParameters("Invalid player address");
+
+        UserData storage user = userData[player];
+
+        // ===== CHECKS =====
+        if (!user.pendingResolution)
+            revert GameError("No result pending for this player");
+        if (!user.currentGame.isActive)
+            revert GameError("Game is not active");
+
+        // Cache values before any state mutation
+        uint256 requestId  = user.currentRequestId;
+        uint256 randomWord = user.pendingRandomWord;
+        uint8 chosenSide   = user.currentGame.chosenSide;
+        uint256 betAmount  = user.currentGame.amount;
+
         // ===== EFFECTS =====
-        // 1. Calculate result (HEADS=1, TAILS=2)
-        uint8 result = uint8((randomWords[0] % MAX_SIDES) + 1);
-        
-        // 2. Calculate payout
+        // 1. Compute result
+        uint8 result = uint8((randomWord % MAX_SIDES) + 1);
+
+        // 2. Compute payout
         uint256 payout = 0;
         if (chosenSide == result) {
-            // Ensure safe multiplication
-            if (betAmount > type(uint256).max / 2) {
+            if (betAmount > type(uint256).max / 2)
                 revert PayoutCalculationError("Bet amount too large for payout calculation");
-            }
             payout = betAmount * 2;
         }
 
-        // 4. Update game state
-        user.currentGame.result = result;
-        user.currentGame.isActive = false;
+        // 3. Update game state
+        user.currentGame.result    = result;
+        user.currentGame.isActive  = false;
         user.currentGame.completed = true;
-        user.currentGame.payout = payout;
+        user.currentGame.payout    = payout;
 
-        // 5. Update game history
-        _updateUserHistory(
-            user,
-            chosenSide,
-            result,
-            betAmount,
-            payout
-        );
+        // 4. Update history
+        _updateUserHistory(user, chosenSide, result, betAmount, payout);
 
-        // Update total payout if player won
-        if (payout > 0) {
-            totalPayoutAmount += payout;
-        }
-        
-        // Update total games played counter
+        // 5. Update global counters
+        if (payout > 0) totalPayoutAmount += payout;
         unchecked { ++totalGamesPlayed; }
 
-        // Cleanup
+        // 6. Clear all pending / active state
+        user.pendingResolution  = false;
+        user.pendingRandomWord  = 0;
+        user.currentRequestId   = 0;
+        user.requestFulfilled   = false;
+
+        delete s_requests[requestId];
         delete requestToPlayer[requestId];
         delete activeRequestIds[requestId];
-        delete s_requests[requestId];
-        user.currentRequestId = 0;
-        user.requestFulfilled = false;
+        _removeActivePlayer(player);
 
         // ===== INTERACTIONS =====
-        // Process payout if player won
         if (payout > 0) {
             gamaToken.mint(player, payout);
         }
@@ -339,67 +472,59 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         emit GameCompleted(player, requestId, result, payout);
     }
 
-   
     /**
-     * @notice Recover from a stuck game and receive refund
+     * @notice Recover from a stuck game (VRF never responded) and receive a refund.
+     *         Requires both the block threshold and the time timeout to have passed,
+     *         and that the VRF request still exists (i.e. was never fulfilled).
      */
     function recoverOwnStuckGame() external nonReentrant whenNotPaused {
         UserData storage user = userData[msg.sender];
-        
-        // ===== CHECKS =====
-        // Check if user has an active bet
-        if (!user.currentGame.isActive) revert GameError("No active game");
-        
-        uint256 requestId = user.currentRequestId;
-        
-        // Ensure there is a request to recover from
-        if (requestId == 0) {
-            revert GameError("No pending request to recover");
-        }
 
-        // Check for race condition with VRF callback first
-        if (s_requests[requestId].fulfilled && 
+        // ===== CHECKS =====
+        if (!user.currentGame.isActive) revert GameError("No active game");
+
+        uint256 requestId = user.currentRequestId;
+        if (requestId == 0) revert GameError("No pending request to recover");
+
+        // Guard against racing with a freshly-fulfilled callback
+        if (s_requests[requestId].fulfilled &&
             (block.number <= user.lastPlayedBlock + 10)) {
             revert GameError("Request just fulfilled, let VRF complete");
         }
-        
-        // Check if game is stale - with modified conditions
+
+        // If VRF has already responded, the player should call resolveGame instead
+        if (user.pendingResolution)
+            revert GameError("VRF responded - call resolveGame() instead");
+
         bool hasBlockThresholdPassed = block.number > user.lastPlayedBlock + BLOCK_THRESHOLD;
-        bool hasTimeoutPassed = block.timestamp > user.lastPlayedTimestamp + GAME_TIMEOUT;
-        
-        // Modified: Only require that the request exists, not that it's processed
-        bool hasVrfRequest = requestId != 0 && s_requests[requestId].exists;
-        
-        // Check eligibility with modified conditions
-        if (!hasBlockThresholdPassed || !hasTimeoutPassed || !hasVrfRequest) {
+        bool hasTimeoutPassed        = block.timestamp > user.lastPlayedTimestamp + GAME_TIMEOUT;
+        bool hasVrfRequest           = requestId != 0 && s_requests[requestId].exists;
+
+        if (!hasBlockThresholdPassed || !hasTimeoutPassed || !hasVrfRequest)
             revert GameError("Game not eligible for recovery yet");
-        }
 
         // ===== EFFECTS =====
-        // Calculate amount to refund
         uint256 refundAmount = user.currentGame.amount;
-        
         if (refundAmount == 0) revert GameError("Nothing to refund");
-        
-        // Clean up request data
+
         delete s_requests[requestId];
         delete requestToPlayer[requestId];
         delete activeRequestIds[requestId];
-        
-        // Update game state
+
         user.currentGame.completed = true;
-        user.currentGame.isActive = false;
-        user.currentGame.result = RESULT_RECOVERED;
-        user.currentGame.payout = refundAmount;
-        
-        user.currentRequestId = 0;
-        user.requestFulfilled = false;
+        user.currentGame.isActive  = false;
+        user.currentGame.result    = RESULT_RECOVERED;
+        user.currentGame.payout    = refundAmount;
+        _removeActivePlayer(msg.sender);
+
+        user.currentRequestId  = 0;
+        user.requestFulfilled  = false;
+        user.pendingResolution = false;
+        user.pendingRandomWord = 0;
 
         // ===== INTERACTIONS =====
-        // Refund player
         gamaToken.mint(msg.sender, refundAmount);
 
-        // Add to bet history
         _updateUserHistory(
             user,
             user.currentGame.chosenSide,
@@ -408,65 +533,61 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
             refundAmount
         );
 
-       
         emit GameRecovered(msg.sender, requestId, refundAmount);
     }
 
     /**
-     * @notice Force stop a game and refund the player
-     * @param player Player address
+     * @notice Owner-only: force-stop a stuck game and refund the player.
+     * @param player  Player address
      */
     function forceStopGame(address player) external onlyOwner nonReentrant {
         UserData storage user = userData[player];
-        
+
         // ===== CHECKS =====
         if (!user.currentGame.isActive) revert GameError("No active game");
 
         uint256 requestId = user.currentRequestId;
 
-        // Check for race condition with VRF callback first
-        if (requestId != 0 && s_requests[requestId].fulfilled && 
+        if (requestId != 0 && s_requests[requestId].fulfilled &&
             (block.number <= user.lastPlayedBlock + 10)) {
             revert GameError("Request just fulfilled, let VRF complete");
         }
 
-        // Check if game is stale - with modified conditions
+        // If VRF responded, resolveGame should be called first
+        if (user.pendingResolution)
+            revert GameError("VRF responded - call resolveGame() instead");
+
         bool hasBlockThresholdPassed = block.number > user.lastPlayedBlock + BLOCK_THRESHOLD;
-        bool hasTimeoutPassed = block.timestamp > user.lastPlayedTimestamp + GAME_TIMEOUT;
-        
-        // Modified: Only require that the request exists, not that it's processed
-        bool hasVrfRequest = requestId != 0 && s_requests[requestId].exists;
-        
-        // Check eligibility with modified conditions
-        if (!hasBlockThresholdPassed || !hasTimeoutPassed || !hasVrfRequest) {
+        bool hasTimeoutPassed        = block.timestamp > user.lastPlayedTimestamp + GAME_TIMEOUT;
+        bool hasVrfRequest           = requestId != 0 && s_requests[requestId].exists;
+
+        if (!hasBlockThresholdPassed || !hasTimeoutPassed || !hasVrfRequest)
             revert GameError("Game not eligible for force stop yet");
-        }
 
         uint256 refundAmount = user.currentGame.amount;
-        
         if (refundAmount == 0) revert GameError("Nothing to refund");
 
         // ===== EFFECTS =====
-        // Clean up request data
         if (requestId != 0) {
             delete requestToPlayer[requestId];
             delete activeRequestIds[requestId];
             delete s_requests[requestId];
         }
 
-        // Mark game as completed
         user.currentGame.completed = true;
-        user.currentGame.isActive = false;
-        user.currentGame.result = RESULT_FORCE_STOPPED;
-        user.currentGame.payout = refundAmount;
-        user.currentRequestId = 0;
-        user.requestFulfilled = false;
+        user.currentGame.isActive  = false;
+        user.currentGame.result    = RESULT_FORCE_STOPPED;
+        user.currentGame.payout    = refundAmount;
+        _removeActivePlayer(player);
+
+        user.currentRequestId  = 0;
+        user.requestFulfilled  = false;
+        user.pendingResolution = false;
+        user.pendingRandomWord = 0;
 
         // ===== INTERACTIONS =====
-        // Refund player
         gamaToken.mint(player, refundAmount);
-      
-        // Add to bet history
+
         _updateUserHistory(
             user,
             user.currentGame.chosenSide,
@@ -475,7 +596,6 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
             refundAmount
         );
 
-        
         emit GameRecovered(player, requestId, refundAmount);
     }
 
@@ -493,11 +613,11 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         _unpause();
     }
 
+    // ============ View Functions ============
+
     /**
-     * @notice Get player's game data
-     * @param player Player address
-     * @return gameState Current game state
-     * @return lastPlayed Last played timestamp
+     * @notice Get a player's current game state and last-played timestamp.
+     * @param player  Player address
      */
     function getUserData(address player) external view returns (
         GameState memory gameState,
@@ -505,80 +625,97 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
     ) {
         if (player == address(0)) revert InvalidBetParameters("Invalid player address");
         UserData storage user = userData[player];
-        return (
-            user.currentGame,
-            user.lastPlayedTimestamp
-        );
+        return (user.currentGame, user.lastPlayedTimestamp);
     }
 
     /**
-     * @notice Get player's bet history
-     * @param player Player address
-     * @return Array of past bets (newest to oldest)
+     * @notice Get a player's bet history (newest first, up to MAX_HISTORY_SIZE).
+     * @param player  Player address
      */
     function getBetHistory(address player) external view returns (BetHistory[] memory) {
         if (player == address(0)) revert InvalidBetParameters("Invalid player address");
-        
+
         UserData storage user = userData[player];
         uint256 length = user.recentBets.length;
-        
+
         if (length == 0) return new BetHistory[](0);
-        
-        // Create array with exact size needed
+
         uint256 resultLength = length > MAX_HISTORY_SIZE ? MAX_HISTORY_SIZE : length;
         BetHistory[] memory orderedBets = new BetHistory[](resultLength);
-        
-        // If array is not full yet
+
         if (length < MAX_HISTORY_SIZE) {
-            // Copy in reverse order so newest is first
             for (uint256 i = 0; i < length; i++) {
                 orderedBets[i] = user.recentBets[length - 1 - i];
             }
         } else {
-            // Handle circular buffer ordering
-            uint256 newestIndex = user.historyIndex == 0 ? MAX_HISTORY_SIZE - 1 : user.historyIndex - 1;
-            
+            uint256 newestIndex = user.historyIndex == 0
+                ? MAX_HISTORY_SIZE - 1
+                : user.historyIndex - 1;
             for (uint256 i = 0; i < MAX_HISTORY_SIZE; i++) {
                 orderedBets[i] = user.recentBets[(newestIndex + MAX_HISTORY_SIZE - i) % MAX_HISTORY_SIZE];
             }
         }
-        
+
         return orderedBets;
     }
 
     /**
-     * @notice Get player for a specific VRF request
-     * @param requestId VRF request ID
-     * @return Player address
+     * @notice Get a paginated list of active players for automation/keepers.
+     */
+    function getActivePlayers(uint256 offset, uint256 limit) 
+        external view returns (address[] memory players, uint256 total) 
+    {
+        total = activePlayers.length;
+        if (offset >= total) return (new address[](0), total);
+        uint256 end = offset + limit > total ? total : offset + limit;
+        players = new address[](end - offset);
+        for (uint256 i = 0; i < players.length; i++) {
+            players[i] = activePlayers[offset + i];
+        }
+    }
+
+
+    /**
+     * @notice Get the player address associated with a VRF request ID.
+     * @param requestId  VRF request ID
      */
     function getPlayerForRequest(uint256 requestId) external view returns (address) {
         return requestToPlayer[requestId];
     }
 
     /**
-     * @notice Check if player has pending game
-     * @param player Player address
-     * @return Status of pending request
+     * @notice Return true if the player has an active game with a pending VRF request,
+     *         OR if VRF has responded and resolveGame() hasn't been called yet.
+     * @param player  Player address
      */
     function hasPendingRequest(address player) external view returns (bool) {
         UserData storage user = userData[player];
-        return user.currentGame.isActive && user.currentRequestId != 0;
+        return user.currentGame.isActive &&
+               (user.currentRequestId != 0 || user.pendingResolution);
     }
 
     /**
-     * @notice Check if player can start new game
-     * @param player Player address
-     * @return Eligibility status
+     * @notice Return true if the player can start a new game.
+     * @param player  Player address
      */
     function canStartNewGame(address player) external view returns (bool) {
         UserData storage user = userData[player];
-        return !user.currentGame.isActive && user.currentRequestId == 0;
+        return !user.currentGame.isActive &&
+               user.currentRequestId == 0 &&
+               !user.pendingResolution;
     }
 
-    /*
-     * @notice Get detailed game status information
-     * @param player Player address
-     * @return Comprehensive game state and request information
+    /**
+     * @notice Return true if a player has a result ready and is waiting for resolveGame().
+     * @param player  Player address
+     */
+    function hasPendingResolution(address player) external view returns (bool) {
+        return userData[player].pendingResolution;
+    }
+
+    /**
+     * @notice Comprehensive game status for a player.
+     * @param player  Player address
      */
     function getGameStatus(address player) external view returns (
         bool isActive,
@@ -592,71 +729,58 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         bool requestExists,
         bool requestProcessed,
         bool recoveryEligible,
-        uint256 lastPlayTimestamp
+        uint256 lastPlayTimestamp,
+        bool pendingResolution
     ) {
         if (player == address(0)) revert InvalidBetParameters("Invalid player address");
-        
+
         UserData storage user = userData[player];
-        
-        isActive = user.currentGame.isActive;
-        isCompleted = user.currentGame.completed;
-        chosenSide = user.currentGame.chosenSide;
-        amount = user.currentGame.amount;
-        result = user.currentGame.result;
-        payout = user.currentGame.payout;
-        requestId = user.currentRequestId;
+
+        isActive          = user.currentGame.isActive;
+        isCompleted       = user.currentGame.completed;
+        chosenSide        = user.currentGame.chosenSide;
+        amount            = user.currentGame.amount;
+        result            = user.currentGame.result;
+        payout            = user.currentGame.payout;
+        requestId         = user.currentRequestId;
         lastPlayTimestamp = user.lastPlayedTimestamp;
-        
-        // Natural win if payout > 0 and result is either HEADS or TAILS
+        pendingResolution = user.pendingResolution;
+
         isWin = payout > 0 && (result == HEADS || result == TAILS);
-        
-        requestExists = false;
+
+        requestExists    = false;
         requestProcessed = false;
-        
-        // Check request status if ID is valid
+
         if (requestId != 0) {
             RequestStatus storage request = s_requests[requestId];
-            requestExists = request.exists;
+            requestExists    = request.exists;
             requestProcessed = request.fulfilled;
         }
-        
-        // Determine recovery eligibility
+
         recoveryEligible = false;
-        if (isActive) {
-            // All conditions must be met for recovery eligibility
+        if (isActive && !pendingResolution) {
             bool hasBlockThresholdPassed = block.number > user.lastPlayedBlock + BLOCK_THRESHOLD;
-            bool hasTimeoutPassed = block.timestamp > user.lastPlayedTimestamp + GAME_TIMEOUT;
-            bool hasVrfRequest = requestId != 0 && requestExists;
-            
-            // Only eligible if ALL conditions are met
+            bool hasTimeoutPassed        = block.timestamp > user.lastPlayedTimestamp + GAME_TIMEOUT;
+            bool hasVrfRequest           = requestId != 0 && requestExists;
             recoveryEligible = hasBlockThresholdPassed && hasTimeoutPassed && hasVrfRequest;
         }
     }
 
     // ============ Private Functions ============
+
     /**
-     * @dev Check if user has sufficient balance and allowance
-     * @param player User address
-     * @param amount Bet amount
+     * @dev Revert if the player does not have sufficient balance or allowance.
      */
     function _checkBalancesAndAllowances(address player, uint256 amount) private view {
-        if (gamaToken.balanceOf(player) < amount) {
-            revert InsufficientUserBalance(amount, gamaToken.balanceOf(player));
-        }
+        uint256 bal = gamaToken.balanceOf(player);
+        if (bal < amount) revert InsufficientUserBalance(amount, bal);
 
-        if (gamaToken.allowance(player, address(this)) < amount) {
-            revert InsufficientAllowance(amount, gamaToken.allowance(player, address(this)));
-        }
-
+        uint256 allowance = gamaToken.allowance(player, address(this));
+        if (allowance < amount) revert InsufficientAllowance(amount, allowance);
     }
 
     /**
-     * @dev Add bet to player's history using circular buffer
-     * @param user User data reference
-     * @param chosenSide Player's chosen side (HEADS or TAILS)
-     * @param result Flip result
-     * @param amount Bet amount
-     * @param payout Win amount
+     * @dev Append a bet to the player's circular history buffer.
      */
     function _updateUserHistory(
         UserData storage user,
@@ -666,21 +790,36 @@ contract Flip is ReentrancyGuard, Pausable, VRFConsumerBaseV2, Ownable {
         uint256 payout
     ) private {
         BetHistory memory newBet = BetHistory({
-            chosenSide: chosenSide,
+            chosenSide:    chosenSide,
             flippedResult: result,
-            amount: amount,
-            timestamp: uint32(block.timestamp),
-            payout: payout
+            amount:        amount,
+            timestamp:     uint32(block.timestamp),
+            payout:        payout
         });
 
         if (user.recentBets.length < MAX_HISTORY_SIZE) {
-            // Array not full, add to end
             user.recentBets.push(newBet);
             user.historyIndex = uint8(user.recentBets.length % MAX_HISTORY_SIZE);
         } else {
-            // Array full, overwrite oldest entry
             user.recentBets[user.historyIndex] = newBet;
             user.historyIndex = (user.historyIndex + 1) % MAX_HISTORY_SIZE;
         }
+    }
+
+    /**
+     * @dev Remove a player from the activePlayers list (swap-pop).
+     */
+    function _removeActivePlayer(address player) private {
+        if (!isActivePlayer[player]) return;
+        uint256 idx = activePlayerIndex[player] - 1; // convert to 0-based
+        uint256 last = activePlayers.length - 1;
+        if (idx != last) {
+            address lastPlayer = activePlayers[last];
+            activePlayers[idx] = lastPlayer;
+            activePlayerIndex[lastPlayer] = idx + 1;
+        }
+        activePlayers.pop();
+        delete activePlayerIndex[player];
+        isActivePlayer[player] = false;
     }
 }

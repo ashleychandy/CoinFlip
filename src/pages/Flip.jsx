@@ -1,4 +1,3 @@
-import { useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
@@ -7,7 +6,6 @@ import {
   faCubes,
   faChartLine,
   faChevronDown,
-  faChevronUp,
 } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
@@ -119,7 +117,6 @@ const WelcomeBanner = ({ onConnectClick }) => (
 const FlipPage = ({ contracts, account, onError, addToast }) => {
   const [lastBetAmount, setLastBetAmount] = useState(null);
   const [lastBetDetails, setLastBetDetails] = useState(null);
-  const queryClient = useQueryClient();
   const [isVrfModalOpen, setIsVrfModalOpen] = useState(false);
   const { connectWallet, isWalletConnected } = useWallet();
 
@@ -152,10 +149,18 @@ const FlipPage = ({ contracts, account, onError, addToast }) => {
   // Determine if the VRF recovery button should be shown
   const showVrfButton =
     gameStatus?.isActive &&
+    !gameStatus?.pendingResolution &&
     (gameStatus?.recoveryEligible ||
       (gameStatus?.lastPlayTimestamp &&
         gameStatus?.requestExists &&
         !gameStatus?.requestProcessed));
+
+  const showResolveButton =
+    gameStatus?.isActive &&
+    !gameStatus?.isCompleted &&
+    gameStatus?.pendingResolution;
+
+  const hasPendingGame = gameStatus?.isActive && !gameStatus?.isCompleted;
 
   // Use our custom game logic hook
   const {
@@ -168,10 +173,12 @@ const FlipPage = ({ contracts, account, onError, addToast }) => {
     needsApproval,
     isApproving,
     isBetting,
+    isResolving,
     setChosenNumber,
     setBetAmount,
     handleApproveToken,
     handlePlaceBet,
+    handleResolveGame,
   } = useGameLogic(contracts, account, onError, addToast);
 
   // Convert between UI representation (heads/tails) and contract values (1/2)
@@ -378,10 +385,9 @@ const FlipPage = ({ contracts, account, onError, addToast }) => {
                   onClick={handlePlaceBetWithTracking}
                   disabled={
                     (gameState.isProcessing && !gameState.lastResult) ||
-                    (gameState.isRolling &&
-                      gameStatus?.isActive &&
-                      !gameStatus?.isCompleted) ||
+                    hasPendingGame ||
                     isApproving ||
+                    isResolving ||
                     isBetting ||
                     !chosenNumber ||
                     needsApproval ||
@@ -390,21 +396,23 @@ const FlipPage = ({ contracts, account, onError, addToast }) => {
                   className="h-14 w-full bg-gradient-to-r from-gaming-primary to-gaming-accent hover:from-gaming-primary/90 hover:to-gaming-accent/90 font-medium rounded-lg transition-all shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {(gameState.isProcessing && !gameState.lastResult) ||
-                  (gameState.isRolling &&
-                    gameStatus?.isActive &&
-                    !gameStatus?.isCompleted) ? (
+                  hasPendingGame ? (
                     <span className="flex items-center justify-center">
                       <LoadingSpinner size="small" />
                       <span className="ml-2">
-                        {gameState.isRolling &&
-                        gameStatus?.isActive &&
-                        !gameStatus?.isCompleted
-                          ? 'Rolling Coin...'
-                          : gameState.isProcessing && gameState.lastResult
-                            ? 'Finalizing bet...'
-                            : isBetting
-                              ? 'Confirming transaction...'
-                              : 'Processing your bet...'}
+                        {showResolveButton
+                          ? isResolving
+                            ? 'Resolving result...'
+                            : 'Resolve pending result first'
+                          : gameState.isRolling &&
+                              gameStatus?.isActive &&
+                              !gameStatus?.isCompleted
+                            ? 'Rolling Coin...'
+                            : gameState.isProcessing && gameState.lastResult
+                              ? 'Finalizing bet...'
+                              : isBetting
+                                ? 'Confirming transaction...'
+                                : 'Processing your bet...'}
                       </span>
                     </span>
                   ) : hasNoTokens ? (
@@ -440,10 +448,34 @@ const FlipPage = ({ contracts, account, onError, addToast }) => {
                   )}
                 </motion.button>
 
+                {showResolveButton && (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleResolveGame}
+                    disabled={isResolving || isApproving || isBetting}
+                    className="h-14 w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-500/90 hover:to-teal-500/90 text-white font-medium rounded-lg transition-all shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {isResolving ? (
+                      <span className="flex items-center justify-center">
+                        <LoadingSpinner size="small" />
+                        <span className="ml-2">Resolving game...</span>
+                      </span>
+                    ) : (
+                      <span className="flex items-center justify-center">
+                        <FontAwesomeIcon icon={faChartLine} className="mr-2" />
+                        Resolve Game Result
+                      </span>
+                    )}
+                  </motion.button>
+                )}
+
                 {/* Processing Status Message */}
                 {(gameState.isProcessing ||
                   gameState.isRolling ||
-                  isBetting) && (
+                  isBetting ||
+                  isResolving ||
+                  showResolveButton) && (
                   <motion.div
                     initial={{ opacity: 0, y: 5 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -452,27 +484,35 @@ const FlipPage = ({ contracts, account, onError, addToast }) => {
                     <div className="flex items-center justify-center gap-2 mb-1">
                       <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
                       <span className="font-medium text-gray-800">
-                        {gameState.isRolling &&
-                        gameStatus?.isActive &&
-                        !gameStatus?.isCompleted
-                          ? 'Waiting for Random Number'
-                          : gameState.isProcessing && gameState.lastResult
-                            ? 'Finalizing Bet Result'
-                            : isBetting
-                              ? 'Confirming Transaction'
-                              : 'Processing Bet'}
+                        {showResolveButton
+                          ? 'Result Ready To Resolve'
+                          : gameState.isRolling &&
+                              gameStatus?.isActive &&
+                              !gameStatus?.isCompleted
+                            ? 'Waiting for Random Number'
+                            : gameState.isProcessing && gameState.lastResult
+                              ? 'Finalizing Bet Result'
+                              : isResolving
+                                ? 'Resolving Result'
+                                : isBetting
+                                  ? 'Confirming Transaction'
+                                  : 'Processing Bet'}
                       </span>
                     </div>
                     <p className="text-xs text-gray-600">
-                      {gameState.isRolling &&
-                      gameStatus?.isActive &&
-                      !gameStatus?.isCompleted
-                        ? 'Please wait while we get a secure random result from VRF...'
-                        : gameState.isProcessing && gameState.lastResult
-                          ? 'Your bet has been placed. Waiting for final confirmation...'
-                          : isBetting
-                            ? 'Please confirm the transaction in your wallet...'
-                            : 'Your bet is being processed. Please wait...'}
+                      {showResolveButton
+                        ? 'VRF fulfillment has finished. Resolve the game onchain to reveal the outcome.'
+                        : gameState.isRolling &&
+                            gameStatus?.isActive &&
+                            !gameStatus?.isCompleted
+                          ? 'Please wait while we get a secure random result from VRF...'
+                          : gameState.isProcessing && gameState.lastResult
+                            ? 'Your bet has been placed. Waiting for final confirmation...'
+                            : isResolving
+                              ? 'Please confirm the resolve transaction in your wallet...'
+                              : isBetting
+                                ? 'Please confirm the transaction in your wallet...'
+                                : 'Your bet is being processed. Please wait...'}
                     </p>
                   </motion.div>
                 )}
@@ -526,6 +566,8 @@ const FlipPage = ({ contracts, account, onError, addToast }) => {
                 betResult={lastBetDetails?.result || gameState.lastResult}
                 chosenNumber={lastBetDetails?.chosenNumber || chosenNumber}
                 betAmount={lastBetDetails?.betAmount || betAmount}
+                onResolveClick={handleResolveGame}
+                isResolving={isResolving}
               />
             </motion.div>
           </div>

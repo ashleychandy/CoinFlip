@@ -180,7 +180,7 @@ const Navbar = () => {
           <button
             onClick={() =>
               window.open(
-                'https://app.xspswap.finance/#/swap?outputCurrency=0x678adf7955d8f6dcaa9e2fcc1c5ba70bccc464e6',
+                'https://app.xspswap.finance/#/swap?inputCurrency=0x951857744785e80e2de051c32ee7b25f9c458c42&outputCurrency=0x3a170c7c987f55c84f28733bfa27962d8cdd5d3b',
                 '_blank'
               )
             }
